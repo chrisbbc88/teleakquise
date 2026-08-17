@@ -1,0 +1,2069 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Akquise-Cockpit · Telefonakquise</title>
+<style>
+/* ================= Design Tokens ================= */
+:root{
+  --radius:14px; --radius-sm:9px; --radius-lg:20px;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --t:.16s cubic-bezier(.4,0,.2,1);
+}
+html[data-theme="dark"]{
+  --bg:#0b0f16; --bg2:#111722; --surface:#151d2a; --surface2:#1b2534; --surface3:#233045;
+  --line:#26324557; --line2:#2f3d52; --txt:#e8edf5; --txt2:#9aa8bd; --txt3:#6b7a91;
+  --accent:#4f8cff; --accent2:#7aa9ff; --accent-soft:#4f8cff22;
+  --ok:#2ed3a0; --ok-soft:#2ed3a022; --warn:#ffb340; --warn-soft:#ffb34022;
+  --bad:#ff5f6d; --bad-soft:#ff5f6d22; --purple:#a97bff; --purple-soft:#a97bff22;
+  --shadow:0 12px 40px #0009; --shadow-sm:0 3px 14px #0006;
+}
+html[data-theme="light"]{
+  --bg:#f4f6fa; --bg2:#eef1f7; --surface:#ffffff; --surface2:#f6f8fc; --surface3:#eaeef6;
+  --line:#dfe5f0; --line2:#cbd5e6; --txt:#101828; --txt2:#5b6779; --txt3:#8794a8;
+  --accent:#2563eb; --accent2:#1d4ed8; --accent-soft:#2563eb14;
+  --ok:#0f9d70; --ok-soft:#0f9d7016; --warn:#c07800; --warn-soft:#f0980016;
+  --bad:#dc3546; --bad-soft:#dc354616; --purple:#7c3aed; --purple-soft:#7c3aed16;
+  --shadow:0 12px 36px #1b2a4a1f; --shadow-sm:0 2px 10px #1b2a4a14;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--font); background:var(--bg); color:var(--txt);
+  font-size:14.5px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line2);border-radius:9px;border:3px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:var(--txt3)}
+
+/* ================= Layout ================= */
+#app{display:grid;grid-template-columns:236px 1fr;height:100vh}
+.sidebar{
+  background:var(--bg2);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.brand{padding:18px 18px 14px;display:flex;align-items:center;gap:11px}
+.brand .logo{
+  width:34px;height:34px;border-radius:10px;flex:0 0 auto;
+  background:linear-gradient(135deg,var(--accent),var(--purple));
+  display:grid;place-items:center;color:#fff;font-weight:800;font-size:15px;
+  box-shadow:0 4px 14px var(--accent-soft);
+}
+.brand b{font-size:15px;letter-spacing:-.2px;display:block;line-height:1.2}
+.brand small{color:var(--txt3);font-size:11px;letter-spacing:.4px;text-transform:uppercase}
+.nav{flex:1;overflow-y:auto;padding:6px 10px 10px}
+.nav-sec{font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--txt3);padding:14px 10px 6px;font-weight:700}
+.nav a{
+  display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:10px;
+  color:var(--txt2);font-weight:530;font-size:13.6px;transition:var(--t);margin-bottom:1px;
+}
+.nav a:hover{background:var(--surface2);color:var(--txt);text-decoration:none}
+.nav a.on{background:var(--accent-soft);color:var(--accent2);font-weight:650}
+html[data-theme="dark"] .nav a.on{color:#cfe0ff}
+.nav a .ic{width:17px;text-align:center;font-size:14px;flex:0 0 auto}
+.nav a .cnt{
+  margin-left:auto;font-size:11px;font-weight:700;background:var(--surface3);
+  color:var(--txt2);padding:1px 7px;border-radius:20px;min-width:22px;text-align:center;
+}
+.nav a.on .cnt{background:var(--accent);color:#fff}
+.nav a .cnt.hot{background:var(--bad);color:#fff}
+.side-foot{padding:10px;border-top:1px solid var(--line);display:flex;gap:6px}
+.side-foot button{
+  flex:1;padding:8px;border-radius:9px;background:var(--surface2);color:var(--txt2);
+  font-size:12px;font-weight:600;transition:var(--t);border:1px solid var(--line)
+}
+.side-foot button:hover{background:var(--surface3);color:var(--txt)}
+
+.main{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.topbar{
+  height:60px;flex:0 0 auto;display:flex;align-items:center;gap:14px;
+  padding:0 22px;border-bottom:1px solid var(--line);background:var(--bg);
+}
+.topbar h1{font-size:17px;font-weight:700;letter-spacing:-.3px}
+.topbar .sub{color:var(--txt3);font-size:12.5px;margin-top:1px}
+.search{
+  margin-left:auto;position:relative;
+}
+.search input{
+  width:270px;padding:8px 12px 8px 32px;border-radius:10px;background:var(--surface2);
+  border:1px solid var(--line);outline:none;transition:var(--t);font-size:13.5px
+}
+.search input:focus{border-color:var(--accent);background:var(--surface);width:330px}
+.search .si{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--txt3);font-size:13px}
+.view{flex:1;overflow-y:auto;padding:22px}
+.view-inner{max-width:1400px;margin:0 auto}
+
+/* ================= Components ================= */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  padding:9px 15px;border-radius:10px;font-weight:620;font-size:13.5px;
+  background:var(--surface2);border:1px solid var(--line);color:var(--txt);transition:var(--t);white-space:nowrap
+}
+.btn:hover{background:var(--surface3);border-color:var(--line2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 3px 12px var(--accent-soft)}
+.btn.primary:hover{background:var(--accent2);border-color:var(--accent2)}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#04231a}
+.btn.ok:hover{filter:brightness(1.08)}
+.btn.bad{background:var(--bad-soft);border-color:#ff5f6d55;color:var(--bad)}
+.btn.warn{background:var(--warn-soft);border-color:#ffb34055;color:var(--warn)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--txt2)}
+.btn.ghost:hover{background:var(--surface2);color:var(--txt)}
+.btn.sm{padding:6px 11px;font-size:12.5px;border-radius:8px}
+.btn.lg{padding:13px 22px;font-size:15px;border-radius:12px}
+.btn.block{width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+.card{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow-sm);
+}
+.card-h{padding:15px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.card-h h3{font-size:14.5px;font-weight:680;letter-spacing:-.2px}
+.card-h .spacer{margin-left:auto}
+.card-b{padding:18px}
+
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+.g5{grid-template-columns:repeat(5,1fr)}
+@media(max-width:1150px){.g4,.g5{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:1fr}}
+
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 17px;position:relative;overflow:hidden}
+.kpi .lbl{font-size:11.5px;color:var(--txt3);font-weight:650;text-transform:uppercase;letter-spacing:.5px}
+.kpi .val{font-size:29px;font-weight:750;letter-spacing:-1px;margin-top:6px;line-height:1}
+.kpi .sub{font-size:12px;color:var(--txt2);margin-top:5px}
+.kpi .bar{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
+.kpi.ok .bar{background:var(--ok)} .kpi.warn .bar{background:var(--warn)}
+.kpi.bad .bar{background:var(--bad)} .kpi.purple .bar{background:var(--purple)}
+
+.tag{
+  display:inline-flex;align-items:center;gap:5px;padding:2.5px 9px;border-radius:20px;
+  font-size:11.5px;font-weight:650;background:var(--surface3);color:var(--txt2);white-space:nowrap
+}
+.tag.b{background:var(--accent-soft);color:var(--accent2)}
+.tag.g{background:var(--ok-soft);color:var(--ok)}
+.tag.y{background:var(--warn-soft);color:var(--warn)}
+.tag.r{background:var(--bad-soft);color:var(--bad)}
+.tag.p{background:var(--purple-soft);color:var(--purple)}
+html[data-theme="dark"] .tag.b{color:var(--accent2)}
+
+.trigger-chip{
+  display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:8px;
+  background:linear-gradient(90deg,var(--warn-soft),transparent);border-left:3px solid var(--warn);
+  font-size:12.5px;font-weight:600;color:var(--txt)
+}
+
+table{width:100%;border-collapse:collapse}
+th{
+  text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--txt3);
+  font-weight:700;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;
+  position:sticky;top:0;background:var(--surface);z-index:2
+}
+td{padding:11px 12px;border-bottom:1px solid var(--line);font-size:13.5px;vertical-align:middle}
+tbody tr{transition:background var(--t)}
+tbody tr:hover{background:var(--surface2)}
+tbody tr:last-child td{border-bottom:0}
+.t-wrap{overflow:auto;max-height:calc(100vh - 250px)}
+.t-comp{font-weight:640}
+.t-sub{color:var(--txt3);font-size:12px}
+.rowbtns{display:flex;gap:5px;justify-content:flex-end}
+
+input[type=text],input[type=tel],input[type=email],input[type=url],input[type=number],
+input[type=date],input[type=time],input[type=datetime-local],select,textarea{
+  width:100%;padding:9px 11px;border-radius:9px;background:var(--surface2);
+  border:1px solid var(--line);outline:none;transition:var(--t)
+}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);background:var(--surface)}
+textarea{resize:vertical;min-height:76px;line-height:1.5}
+label.f{display:block;margin-bottom:12px}
+label.f>span{display:block;font-size:11.5px;font-weight:650;color:var(--txt2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.fgrid.f3{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:700px){.fgrid,.fgrid.f3{grid-template-columns:1fr}}
+
+.empty{text-align:center;padding:54px 20px;color:var(--txt3)}
+.empty .ic{font-size:40px;opacity:.4;margin-bottom:12px}
+.empty h4{font-size:15px;color:var(--txt2);margin-bottom:6px;font-weight:640}
+
+/* ============ Modal / Drawer ============ */
+.overlay{
+  position:fixed;inset:0;background:#000a;backdrop-filter:blur(3px);z-index:140;
+  display:none;align-items:center;justify-content:center;padding:22px
+}
+.overlay.open{display:flex}
+.modal{
+  background:var(--surface);border:1px solid var(--line2);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);width:100%;max-width:620px;max-height:92vh;display:flex;flex-direction:column;
+  animation:pop .18s cubic-bezier(.2,.9,.3,1.2)
+}
+.modal.wide{max-width:960px}
+.modal.xl{max-width:1150px}
+@keyframes pop{from{transform:scale(.96) translateY(10px);opacity:0}to{transform:none;opacity:1}}
+.modal-h{padding:17px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+.modal-h h3{font-size:16px;font-weight:700;letter-spacing:-.2px}
+.modal-h .x{margin-left:auto;width:30px;height:30px;border-radius:8px;color:var(--txt3);font-size:18px;display:grid;place-items:center}
+.modal-h .x:hover{background:var(--surface3);color:var(--txt)}
+.modal-b{padding:20px;overflow-y:auto;flex:1}
+.modal-f{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap}
+
+/* ============ Call Screen ============ */
+.callwrap{
+  position:fixed;inset:0;z-index:100;background:var(--bg);display:none;flex-direction:column
+}
+.callwrap.open{display:flex}
+.call-top{
+  flex:0 0 auto;padding:14px 22px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:16px;background:var(--bg2)
+}
+.call-timer{
+  font-family:var(--mono);font-size:26px;font-weight:700;letter-spacing:-1px;
+  color:var(--ok);min-width:96px;
+}
+.call-timer.paused{color:var(--txt3)}
+.pulse{width:9px;height:9px;border-radius:50%;background:var(--ok);animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 var(--ok-soft)}50%{opacity:.45;box-shadow:0 0 0 7px transparent}}
+.call-body{flex:1;overflow:hidden;display:grid;grid-template-columns:1.15fr 1fr;gap:0}
+@media(max-width:1000px){.call-body{grid-template-columns:1fr;overflow-y:auto}}
+.call-left{overflow-y:auto;padding:22px 24px;border-right:1px solid var(--line)}
+.call-right{overflow-y:auto;padding:22px 24px;background:var(--bg2)}
+.call-comp{font-size:25px;font-weight:750;letter-spacing:-.6px;margin-bottom:3px}
+.call-person{font-size:15px;color:var(--txt2);margin-bottom:14px}
+.dialbox{
+  background:var(--surface);border:1px solid var(--line2);border-radius:var(--radius);
+  padding:15px 17px;margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap
+}
+.dialnum{font-family:var(--mono);font-size:21px;font-weight:700;letter-spacing:-.5px}
+.dialnum small{display:block;font-family:var(--font);font-size:11px;color:var(--txt3);font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+.info-row{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.info-row:last-child{border-bottom:0}
+.info-row .k{width:128px;flex:0 0 auto;color:var(--txt3);font-size:12.5px;font-weight:600}
+.info-row .v{flex:1;word-break:break-word}
+.script-box{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  padding:15px 17px;margin-bottom:14px;white-space:pre-wrap;font-size:14px;line-height:1.65
+}
+.script-box h5{font-size:11.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--accent2);margin-bottom:9px;font-weight:700}
+.outcomes{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:6px}
+@media(max-width:620px){.outcomes{grid-template-columns:1fr}}
+.oc{
+  display:flex;align-items:flex-start;gap:11px;padding:13px 14px;border-radius:12px;
+  background:var(--surface);border:1px solid var(--line);text-align:left;transition:var(--t)
+}
+.oc:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+.oc .oi{font-size:19px;line-height:1;margin-top:1px}
+.oc b{display:block;font-size:13.8px;font-weight:660}
+.oc small{color:var(--txt3);font-size:11.5px;display:block;margin-top:2px;line-height:1.35}
+.oc.green:hover{border-color:var(--ok)} .oc.red:hover{border-color:var(--bad)}
+.oc.amber:hover{border-color:var(--warn)} .oc.violet:hover{border-color:var(--purple)}
+
+.chiprow{display:flex;flex-wrap:wrap;gap:7px}
+.chip{
+  padding:7px 13px;border-radius:9px;background:var(--surface2);border:1px solid var(--line);
+  font-size:13px;font-weight:600;transition:var(--t)
+}
+.chip:hover{border-color:var(--accent);background:var(--accent-soft);color:var(--accent2)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* ============ Kanban ============ */
+.kan{display:flex;gap:13px;overflow-x:auto;padding-bottom:14px;align-items:flex-start}
+.kcol{
+  flex:0 0 275px;background:var(--bg2);border:1px solid var(--line);border-radius:var(--radius);
+  display:flex;flex-direction:column;max-height:calc(100vh - 175px)
+}
+.kcol.dragover{border-color:var(--accent);background:var(--accent-soft)}
+.kcol-h{padding:12px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line)}
+.kcol-h .dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+.kcol-h b{font-size:12.8px;font-weight:680}
+.kcol-h .n{margin-left:auto;font-size:11px;font-weight:700;color:var(--txt3);background:var(--surface3);padding:1px 7px;border-radius:20px}
+.kcol-b{overflow-y:auto;padding:9px;display:flex;flex-direction:column;gap:8px;min-height:70px}
+.kcard{
+  background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:11px 12px;
+  cursor:grab;transition:var(--t)
+}
+.kcard:hover{border-color:var(--line2);box-shadow:var(--shadow-sm);transform:translateY(-1px)}
+.kcard.dragging{opacity:.4}
+.kcard b{font-size:13.2px;font-weight:660;display:block;line-height:1.3}
+.kcard .who{font-size:12px;color:var(--txt2);margin-top:2px}
+.kcard .meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;align-items:center}
+.kcard .due{font-size:11.5px;font-weight:650}
+.due.over{color:var(--bad)} .due.today{color:var(--warn)} .due.soon{color:var(--txt2)}
+
+/* ============ Misc ============ */
+.toast-wrap{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:8px;align-items:center}
+.toast{
+  padding:11px 18px;border-radius:11px;background:var(--surface);border:1px solid var(--line2);
+  box-shadow:var(--shadow);font-size:13.5px;font-weight:600;animation:up .2s;display:flex;align-items:center;gap:9px
+}
+@keyframes up{from{transform:translateY(14px);opacity:0}to{transform:none;opacity:1}}
+.toast.ok{border-color:var(--ok);color:var(--ok)}
+.toast.warn{border-color:var(--warn);color:var(--warn)}
+.toast.bad{border-color:var(--bad);color:var(--bad)}
+.hr{height:1px;background:var(--line);margin:16px 0}
+.mut{color:var(--txt3)}
+.small{font-size:12.5px}
+.b{font-weight:660}
+.right{text-align:right}
+.flex{display:flex;align-items:center;gap:9px}
+.wrapflex{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.mb0{margin-bottom:0}
+.sect-h{font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:var(--txt3);font-weight:700;margin:22px 0 11px}
+.sect-h:first-child{margin-top:0}
+.pill-nav{display:flex;gap:5px;background:var(--surface2);padding:4px;border-radius:11px;border:1px solid var(--line)}
+.pill-nav button{padding:6px 13px;border-radius:8px;font-size:13px;font-weight:620;color:var(--txt2);transition:var(--t)}
+.pill-nav button.on{background:var(--surface);color:var(--txt);box-shadow:var(--shadow-sm)}
+.stack{display:flex;flex-direction:column;gap:10px}
+.listitem{
+  display:flex;align-items:center;gap:13px;padding:13px 15px;background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--radius);transition:var(--t)
+}
+.listitem:hover{border-color:var(--line2);box-shadow:var(--shadow-sm)}
+.listitem .lead{flex:1;min-width:0}
+.listitem .lead b{font-size:14px;font-weight:660;display:block}
+.avatar{
+  width:38px;height:38px;border-radius:11px;flex:0 0 auto;display:grid;place-items:center;
+  font-weight:700;font-size:13.5px;background:var(--accent-soft);color:var(--accent2)
+}
+.progress{height:6px;border-radius:6px;background:var(--surface3);overflow:hidden}
+.progress i{display:block;height:100%;background:var(--accent);border-radius:6px;transition:width .4s}
+.bars{display:flex;flex-direction:column;gap:9px}
+.barrow{display:grid;grid-template-columns:132px 1fr 46px;align-items:center;gap:11px;font-size:13px}
+.barrow .bt{height:9px;border-radius:9px;background:var(--surface3);overflow:hidden}
+.barrow .bt i{display:block;height:100%;border-radius:9px}
+kbd{
+  font-family:var(--mono);font-size:11px;padding:2px 6px;border-radius:5px;
+  background:var(--surface3);border:1px solid var(--line2);color:var(--txt2)
+}
+.dz{
+  border:2px dashed var(--line2);border-radius:var(--radius);padding:30px;text-align:center;
+  color:var(--txt3);transition:var(--t);cursor:pointer
+}
+.dz:hover,.dz.over{border-color:var(--accent);background:var(--accent-soft);color:var(--accent2)}
+.maprow{display:grid;grid-template-columns:1fr 26px 1fr;gap:9px;align-items:center;margin-bottom:8px}
+.maprow .src{background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tl{position:relative;padding-left:22px}
+.tl:before{content:"";position:absolute;left:6px;top:5px;bottom:5px;width:2px;background:var(--line)}
+.tli{position:relative;padding-bottom:15px}
+.tli:last-child{padding-bottom:0}
+.tli:before{content:"";position:absolute;left:-20px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--bg)}
+.tli.green:before{background:var(--ok)} .tli.red:before{background:var(--bad)}
+.tli.amber:before{background:var(--warn)} .tli.violet:before{background:var(--purple)}
+.tli .when{font-size:11.5px;color:var(--txt3);font-weight:600}
+.tli .what{font-size:13.5px;font-weight:620;margin-top:1px}
+.tli .note{font-size:13px;color:var(--txt2);margin-top:3px;white-space:pre-wrap}
+@media(max-width:900px){
+  #app{grid-template-columns:1fr}
+  .sidebar{position:fixed;left:0;top:0;bottom:0;width:236px;z-index:70;transform:translateX(-100%);transition:var(--t)}
+  .sidebar.open{transform:none;box-shadow:var(--shadow)}
+  .search input{width:150px}.search input:focus{width:180px}
+}
+.burger{display:none}
+@media(max-width:900px){.burger{display:grid;place-items:center;width:34px;height:34px;border-radius:9px;background:var(--surface2);border:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="logo">A</div>
+      <div><b>Akquise-Cockpit</b><small>Telefonakquise</small></div>
+    </div>
+    <nav class="nav" id="nav">
+      <div class="nav-sec">Arbeiten</div>
+      <a href="#heute" data-v="heute"><span class="ic">◎</span>Heute<span class="cnt" id="c-heute">0</span></a>
+      <a href="#pipeline" data-v="pipeline"><span class="ic">▤</span>Pipeline</a>
+      <a href="#termine" data-v="termine"><span class="ic">◷</span>Termine<span class="cnt" id="c-termine">0</span></a>
+      <a href="#wiedervorlage" data-v="wiedervorlage"><span class="ic">↻</span>Wiedervorlage<span class="cnt" id="c-wv">0</span></a>
+      <div class="nav-sec">Daten</div>
+      <a href="#kontakte" data-v="kontakte"><span class="ic">☰</span>Alle Kontakte<span class="cnt" id="c-all">0</span></a>
+      <a href="#anrufe" data-v="anrufe"><span class="ic">☎</span>Anrufprotokoll<span class="cnt" id="c-calls">0</span></a>
+      <a href="#kein-interesse" data-v="kein-interesse"><span class="ic">⊘</span>Kein Interesse<span class="cnt" id="c-ki">0</span></a>
+      <div class="nav-sec">Auswerten &amp; Einrichten</div>
+      <a href="#statistik" data-v="statistik"><span class="ic">◪</span>Statistik</a>
+      <a href="#leitfaden" data-v="leitfaden"><span class="ic">✎</span>Leitfäden</a>
+      <a href="#daten" data-v="daten"><span class="ic">⇅</span>Import / Export</a>
+      <a href="#einstellungen" data-v="einstellungen"><span class="ic">⚙</span>Einstellungen</a>
+    </nav>
+    <div class="side-foot">
+      <button onclick="toggleTheme()" id="themeBtn" title="Design wechseln">◐ Design</button>
+      <button onclick="quickBackup()" title="Backup als JSON sichern">⤓ Backup</button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="burger" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+      <div>
+        <h1 id="pageTitle">Heute</h1>
+        <div class="sub" id="pageSub"></div>
+      </div>
+      <div class="search">
+        <span class="si">⌕</span>
+        <input type="text" id="globalSearch" placeholder="Firma, Name, Telefon …  (/)" autocomplete="off">
+      </div>
+      <button class="btn primary" onclick="openLead(null)">＋ Lead</button>
+      <button class="btn ok" onclick="startNextCall()" title="Nächsten fälligen Lead anrufen">☎ Call starten</button>
+    </header>
+    <main class="view" id="view"><div class="view-inner" id="viewInner"></div></main>
+  </div>
+</div>
+
+<!-- Generic modal -->
+<div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modal">
+    <div class="modal-h"><h3 id="modalTitle">–</h3><button class="x" onclick="closeModal()">×</button></div>
+    <div class="modal-b" id="modalBody"></div>
+    <div class="modal-f" id="modalFoot"></div>
+  </div>
+</div>
+
+<!-- Call screen -->
+<div class="callwrap" id="callscreen">
+  <div class="call-top">
+    <span class="pulse" id="callPulse"></span>
+    <span class="call-timer" id="callTimer">00:00</span>
+    <button class="btn sm" onclick="toggleTimer()" id="pauseBtn">❚❚ Pause</button>
+    <div style="margin-left:auto" class="wrapflex">
+      <span class="tag" id="callAttempt"></span>
+      <button class="btn sm ghost" onclick="closeCall(true)">Abbrechen (Esc)</button>
+    </div>
+  </div>
+  <div class="call-body">
+    <div class="call-left" id="callLeft"></div>
+    <div class="call-right" id="callRight"></div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+<script>
+"use strict";
+/* ================================================================
+   AKQUISE-COCKPIT · Telefonakquise · v2
+   Single-File App · Daten bleiben lokal im Browser (localStorage)
+   ================================================================ */
+const KEY='bbc_akquise_cockpit_v2';
+const APP_VERSION='2.0.0';
+
+/* ---------- Status-Definitionen ---------- */
+const STATUS={
+  neu:            {label:'Neu',              color:'#4f8cff', cls:'b', pipe:1},
+  recherche:      {label:'Recherche',        color:'#7aa9ff', cls:'b', pipe:1},
+  nicht_erreicht: {label:'Nicht erreicht',   color:'#ffb340', cls:'y', pipe:1},
+  gatekeeper:     {label:'Zentrale blockt',  color:'#a97bff', cls:'p', pipe:1},
+  gespraech:      {label:'Gespräch geführt', color:'#4f8cff', cls:'b', pipe:1},
+  interesse:      {label:'Interesse',        color:'#2ed3a0', cls:'g', pipe:1},
+  wiedervorlage:  {label:'Wiedervorlage',    color:'#ffb340', cls:'y', pipe:1},
+  termin:         {label:'Termin vereinbart',color:'#2ed3a0', cls:'g', pipe:1},
+  angebot:        {label:'Angebot',          color:'#a97bff', cls:'p', pipe:1},
+  verhandlung:    {label:'Verhandlung',      color:'#a97bff', cls:'p', pipe:1},
+  gewonnen:       {label:'Gewonnen',         color:'#2ed3a0', cls:'g', pipe:1},
+  kein_interesse: {label:'Kein Interesse',   color:'#ff5f6d', cls:'r', pipe:0},
+  verloren:       {label:'Verloren',         color:'#ff5f6d', cls:'r', pipe:0},
+  kein_fit:       {label:'Kein Fit',         color:'#6b7a91', cls:'',  pipe:0}
+};
+const PIPE_COLS=['neu','nicht_erreicht','gatekeeper','gespraech','interesse','wiedervorlage','termin','angebot','verhandlung','gewonnen'];
+const CLOSED=['kein_interesse','verloren','kein_fit'];
+const ACTIVE_FOR_CALL=['neu','recherche','nicht_erreicht','gatekeeper','gespraech','interesse','wiedervorlage'];
+
+const OUTCOMES={
+  termin:        {label:'Termin vereinbart',       icon:'✔', cls:'green',  status:'termin'},
+  interesse:     {label:'Interesse / Unterlagen',  icon:'★', cls:'green',  status:'interesse'},
+  rueckruf:      {label:'Später anrufen',          icon:'↻', cls:'amber',  status:'wiedervorlage'},
+  nicht_erreicht:{label:'Nicht erreicht',          icon:'✆', cls:'amber',  status:'nicht_erreicht'},
+  gatekeeper:    {label:'Zentrale blockt',         icon:'⛨', cls:'violet', status:'gatekeeper'},
+  kein_interesse:{label:'Kein Interesse',          icon:'✖', cls:'red',    status:'kein_interesse'},
+  kein_fit:      {label:'Kein Fit / Ausschluss',   icon:'⊘', cls:'red',    status:'kein_fit'},
+  falsche_nummer:{label:'Falsche Nummer',          icon:'?', cls:'red',    status:'recherche'}
+};
+
+const TRIGGERS=['Website-Relaunch','Schwache Google-Sichtbarkeit','Neue Stellenanzeigen','Messeauftritt','Expansion','Neue Niederlassung','Schlechte Conversion','Hohe Werbeaktivität','Schlechte Landingpage','Starke Konkurrenz','Recruitingbedarf','Neues Produkt','Social-Media-Aktivität','Ungenutztes SEO-Potenzial','Neue Geschäftsführung','Empfehlung','Website-Besucher (Leadinfo)'];
+const ANGEBOTE=['SEO-Potenzialanalyse','Website-Analyse','Conversion Check','Google Ads Audit','Messe-Potenzialanalyse','Leadgenerierung','Recruiting-Kampagne','Website-Relaunch','LinkedIn-Strategie','Marketing-Retainer','Vertriebs-Cockpit','CRM-Einführung'];
+
+const DEFAULT_SCRIPTS=[
+  {id:'s1',typ:'opener',name:'Opener – Sales Trigger',text:
+"Guten Tag Herr/Frau {nachname}, hier ist {ich} von {firma}.\n\nIch rufe an, weil mir bei {firma_lead} aufgefallen ist: {trigger}.\n\nDeshalb eine kurze Frage – haben Sie zwei Minuten?"},
+  {id:'s2',typ:'opener',name:'Opener – Direkt & kurz',text:
+"Herr/Frau {nachname}, {ich} von {firma}. Ich weiß, Sie haben es kurz – 30 Sekunden, dann sagen Sie mir, ob es passt?\n\nWir helfen {branche}-Unternehmen dabei, planbar Anfragen zu bekommen, statt auf Empfehlungen zu warten.\n\nWie machen Sie das aktuell?"},
+  {id:'s3',typ:'gatekeeper',name:'Zentrale / Gatekeeper',text:
+"Guten Tag, {ich} von {firma}.\n\nIch bräuchte kurz Ihre Hilfe: Wer ist bei Ihnen für Marketing und Neukundengewinnung verantwortlich?\n\n… und wie ist der Name genau geschrieben? Ist er/sie heute im Haus?"},
+  {id:'s4',typ:'einwand',name:'Einwand – Kein Interesse',text:
+"Verstehe – das höre ich oft, bevor man weiß, worum es geht.\n\nDarf ich in einem Satz sagen, warum ich gerade bei Ihnen anrufe? Wenn es dann nicht passt, lege ich sofort auf.\n\n→ {trigger}"},
+  {id:'s5',typ:'einwand',name:'Einwand – Keine Zeit',text:
+"Klar, deshalb rufe ich an und schreibe keine Mail.\n\nWann passt es besser – heute Nachmittag oder morgen früh?"},
+  {id:'s6',typ:'einwand',name:'Einwand – Schicken Sie Unterlagen',text:
+"Mache ich gerne. Damit ich Ihnen nicht den Standard-Prospekt schicke:\n\nWas ist bei Ihnen aktuell das größere Thema – mehr Anfragen oder bessere Anfragen?\n\n(Antwort abwarten → Unterlagen + Termin zur Besprechung vorschlagen)"},
+  {id:'s7',typ:'close',name:'Abschluss – Termin setzen',text:
+"Dann machen wir es so: Wir nehmen uns 20 Minuten, ich zeige Ihnen konkret, was ich bei {firma_lead} sehe.\n\nPasst Ihnen Dienstag 10:00 oder eher Donnerstag 14:00?"},
+  {id:'s8',typ:'voicemail',name:'Mailbox-Text',text:
+"{ich} von {firma}, Rückruf unter {telefon_ich}.\n\nEs geht um {trigger} bei {firma_lead} – ich versuche es morgen nochmal. Danke!"}
+];
+
+const DEFAULT_SETTINGS={
+  ich:'Christian', firma:'BuildBuddy Consulting', telefonIch:'', emailIch:'christian@bbc-digital.de',
+  calendly:'https://calendly.com/buildbuddyconsulting/analyse-call',
+  terminDauer:30, notReachedDays:2, maxAttempts:6,
+  zielCalls:30, zielGespraeche:8, zielTermine:2,
+  arbeitsbeginn:'09:00'
+};
+
+/* ---------- State ---------- */
+let state=null, selected=new Set(), route='heute';
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
+function blank(){
+  return {version:2, leads:[], scripts:JSON.parse(JSON.stringify(DEFAULT_SCRIPTS)),
+    settings:Object.assign({},DEFAULT_SETTINGS), theme:'dark', createdAt:new Date().toISOString()};
+}
+function normLead(l){
+  l.id=l.id||uid();
+  l.calls=Array.isArray(l.calls)?l.calls:[];
+  l.tags=Array.isArray(l.tags)?l.tags:[];
+  if(!l.status||!STATUS[l.status])l.status='neu';
+  l.attempts=l.attempts||l.calls.length||0;
+  l.createdAt=l.createdAt||new Date().toISOString();
+  ['unternehmen','website','branche','groesse','standort','telefon','telefon2','email','linkedinFirma',
+   'vorname','nachname','position','mobil','emailAP','linkedinAP','entscheider','quelle','kampagne',
+   'zielgruppe','angebot','trigger','painpoint','potenzial','notizen','nextNote','lostReason']
+   .forEach(k=>{if(l[k]==null)l[k]='';});
+  return l;
+}
+function load(){
+  try{const d=JSON.parse(localStorage.getItem(KEY));
+    if(d&&Array.isArray(d.leads)){
+      state=d; state.settings=Object.assign({},DEFAULT_SETTINGS,d.settings||{});
+      state.scripts=(Array.isArray(d.scripts)&&d.scripts.length)?d.scripts:JSON.parse(JSON.stringify(DEFAULT_SCRIPTS));
+      state.leads.forEach(normLead); return;
+    }}catch(e){}
+  state=blank();
+}
+let saveTimer=null;
+function save(){
+  state.updatedAt=new Date().toISOString();
+  try{localStorage.setItem(KEY,JSON.stringify(state));}
+  catch(e){toast('Speicher voll – bitte Backup exportieren!','bad');}
+  clearTimeout(saveTimer); saveTimer=setTimeout(()=>{render();},0);
+}
+function saveQuiet(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
+
+/* ---------- Helpers ---------- */
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function fullName(l){return [l.vorname,l.nachname].filter(Boolean).join(' ');}
+function displayName(l){const n=fullName(l);return n||(l.position||'Ansprechpartner unbekannt');}
+function initials(l){
+  const s=(l.unternehmen||fullName(l)||'?').trim();
+  const p=s.split(/\s+/).filter(Boolean);
+  return ((p[0]||'?')[0]+(p[1]?p[1][0]:'')).toUpperCase();
+}
+function phoneOf(l){return (l.mobil||l.telefon2||l.telefon||'').trim();}
+function telHref(p){return 'tel:'+String(p).replace(/[^\d+]/g,'');}
+function d2(n){return String(n).padStart(2,'0');}
+function startOfDay(d){const x=new Date(d);x.setHours(0,0,0,0);return x;}
+function endOfDay(d){const x=new Date(d);x.setHours(23,59,59,999);return x;}
+function todayISO(){const n=new Date();return n.getFullYear()+'-'+d2(n.getMonth()+1)+'-'+d2(n.getDate());}
+function fmtDate(iso){if(!iso)return '–';const d=new Date(iso);return d2(d.getDate())+'.'+d2(d.getMonth()+1)+'.'+d.getFullYear();}
+function fmtDT(iso){if(!iso)return '–';const d=new Date(iso);return d2(d.getDate())+'.'+d2(d.getMonth()+1)+'. '+d2(d.getHours())+':'+d2(d.getMinutes());}
+function fmtTime(iso){if(!iso)return '';const d=new Date(iso);return d2(d.getHours())+':'+d2(d.getMinutes());}
+function fmtDur(sec){sec=Math.max(0,Math.round(sec||0));return d2(Math.floor(sec/60))+':'+d2(sec%60);}
+function relDay(iso){
+  if(!iso)return {txt:'–',cls:''};
+  const d=startOfDay(iso), t=startOfDay(new Date());
+  const diff=Math.round((d-t)/86400000);
+  if(diff<0)return {txt:Math.abs(diff)+' Tag'+(Math.abs(diff)===1?'':'e')+' überfällig',cls:'over'};
+  if(diff===0)return {txt:'Heute '+fmtTime(iso),cls:'today'};
+  if(diff===1)return {txt:'Morgen '+fmtTime(iso),cls:'soon'};
+  if(diff<7)return {txt:'in '+diff+' Tagen',cls:'soon'};
+  return {txt:fmtDate(iso),cls:''};
+}
+function toast(msg,kind){
+  const w=document.getElementById('toasts');
+  const el=document.createElement('div');
+  el.className='toast '+(kind||'');
+  el.innerHTML=(kind==='ok'?'✔ ':kind==='bad'?'✖ ':kind==='warn'?'⚠ ':'')+esc(msg);
+  w.appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),300);},2600);
+}
+function download(name,content,mime){
+  const b=new Blob([content],{type:mime||'text/plain;charset=utf-8'});
+  const u=URL.createObjectURL(b), a=document.createElement('a');
+  a.href=u;a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(u);a.remove();},400);
+}
+function addMonths(date,m){const d=new Date(date);const day=d.getDate();d.setMonth(d.getMonth()+m);if(d.getDate()<day)d.setDate(0);return d;}
+function atHour(date,h,mi){const d=new Date(date);d.setHours(h,mi||0,0,0);return d;}
+
+/* ---------- Selektoren ---------- */
+function dueLeads(){
+  const now=new Date();
+  return state.leads.filter(l=>l.nextAt&&new Date(l.nextAt)<=endOfDay(now)&&!CLOSED.includes(l.status)&&l.status!=='termin')
+    .sort((a,b)=>new Date(a.nextAt)-new Date(b.nextAt));
+}
+function overdueLeads(){
+  const now=new Date();
+  return state.leads.filter(l=>l.nextAt&&new Date(l.nextAt)<startOfDay(now)&&!CLOSED.includes(l.status)&&l.status!=='termin');
+}
+function freshLeads(){
+  return state.leads.filter(l=>(l.status==='neu'||l.status==='recherche')&&!l.nextAt&&phoneOf(l));
+}
+function upcomingTermine(all){
+  const now=new Date();
+  return state.leads.filter(l=>l.termin&&l.termin.at&&(all||new Date(l.termin.at)>=startOfDay(now)))
+    .sort((a,b)=>new Date(a.termin.at)-new Date(b.termin.at));
+}
+function terminHeute(){
+  const t=startOfDay(new Date()),e=endOfDay(new Date());
+  return state.leads.filter(l=>l.termin&&l.termin.at&&new Date(l.termin.at)>=t&&new Date(l.termin.at)<=e)
+    .sort((a,b)=>new Date(a.termin.at)-new Date(b.termin.at));
+}
+function allCalls(){
+  const out=[];
+  state.leads.forEach(l=>l.calls.forEach(c=>out.push(Object.assign({lead:l},c))));
+  return out.sort((a,b)=>new Date(b.at)-new Date(a.at));
+}
+function callsBetween(from,to){return allCalls().filter(c=>{const d=new Date(c.at);return d>=from&&d<=to;});}
+function callQueue(){
+  const q=[];
+  const seen=new Set();
+  dueLeads().forEach(l=>{if(!seen.has(l.id)){seen.add(l.id);q.push(l);}});
+  freshLeads().forEach(l=>{if(!seen.has(l.id)){seen.add(l.id);q.push(l);}});
+  return q;
+}
+</script>
+<script>
+/* ================= Routing & Rendering ================= */
+const TITLES={
+  heute:['Heute','Deine Call-Liste für heute'],
+  pipeline:['Pipeline','Alle aktiven Leads nach Stufe'],
+  termine:['Termine','Vereinbarte Termine'],
+  wiedervorlage:['Wiedervorlage','Alles, was erneut angerufen werden muss'],
+  kontakte:['Alle Kontakte','Vollständige Lead-Datenbank'],
+  anrufe:['Anrufprotokoll','Dokumentation aller Anrufe'],
+  'kein-interesse':['Kein Interesse','Abgesagt, kein Fit oder verloren'],
+  statistik:['Statistik','Deine Akquise in Zahlen'],
+  leitfaden:['Leitfäden','Gesprächsleitfäden & Einwandbehandlung'],
+  daten:['Import / Export','Leads importieren, Daten sichern'],
+  einstellungen:['Einstellungen','Ziele, Profil, Standardwerte']
+};
+let filters={q:'',status:'',kampagne:'',sort:'next'};
+
+function go(v){location.hash='#'+v;}
+window.addEventListener('hashchange',()=>{route=(location.hash||'#heute').slice(1)||'heute';render();window.scrollTo(0,0);
+  document.getElementById('sidebar').classList.remove('open');});
+
+function render(){
+  if(!TITLES[route])route='heute';
+  const t=TITLES[route];
+  document.getElementById('pageTitle').textContent=t[0];
+  document.getElementById('pageSub').textContent=t[1];
+  document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.v===route));
+  updateCounts();
+  const el=document.getElementById('viewInner');
+  const fn=({heute:vHeute,pipeline:vPipeline,termine:vTermine,wiedervorlage:vWV,kontakte:vKontakte,
+    anrufe:vAnrufe,'kein-interesse':vKI,statistik:vStat,leitfaden:vLeitfaden,daten:vDaten,einstellungen:vSettings})[route];
+  el.innerHTML=fn();
+  if(route==='pipeline')wireKanban();
+  if(route==='daten')wireDropzone();
+}
+function updateCounts(){
+  const q=callQueue().length, wv=state.leads.filter(l=>l.status==='wiedervorlage'&&l.nextAt).length;
+  const tm=upcomingTermine().length, ki=state.leads.filter(l=>CLOSED.includes(l.status)).length;
+  const set=(id,n,hot)=>{const e=document.getElementById(id);if(!e)return;e.textContent=n;e.classList.toggle('hot',!!hot);e.style.display=n?'':'none';};
+  set('c-heute',q,overdueLeads().length>0);
+  set('c-termine',tm); set('c-wv',wv); set('c-all',state.leads.length);
+  set('c-calls',allCalls().length); set('c-ki',ki);
+}
+
+/* ================= HEUTE ================= */
+function vHeute(){
+  const now=new Date(), s=state.settings;
+  const cToday=callsBetween(startOfDay(now),endOfDay(now));
+  const gespr=cToday.filter(c=>['termin','interesse','kein_interesse','rueckruf'].includes(c.outcome));
+  const termHeuteVereinbart=cToday.filter(c=>c.outcome==='termin');
+  const q=callQueue(), ov=overdueLeads(), th=terminHeute();
+  const pct=v=>Math.min(100,Math.round(v*100));
+
+  let h='';
+  if(state.leads.some(l=>l.demo)){
+    h+='<div class="card" style="margin-bottom:16px;border-color:var(--warn)"><div class="card-b wrapflex" style="padding:12px 16px">'+
+      '<span>👋 Zum Ausprobieren sind 3 Beispiel-Leads enthalten.</span>'+
+      '<div class="spacer" style="margin-left:auto"></div>'+
+      '<button class="btn sm warn" onclick="removeDemo()">Beispieldaten entfernen</button></div></div>';
+  }
+  h+='<div class="grid g4" style="margin-bottom:20px">';
+  h+=kpi('Anrufe heute',cToday.length,'Ziel: '+s.zielCalls,'',pct(cToday.length/(s.zielCalls||1)));
+  h+=kpi('Gespräche',gespr.length,'Ziel: '+s.zielGespraeche,'ok',pct(gespr.length/(s.zielGespraeche||1)));
+  h+=kpi('Termine heute vereinbart',termHeuteVereinbart.length,'Ziel: '+s.zielTermine,'purple',pct(termHeuteVereinbart.length/(s.zielTermine||1)));
+  h+=kpi('Offen in der Warteschlange',q.length,ov.length?ov.length+' überfällig':'alles im Plan',ov.length?'bad':'');
+  h+='</div>';
+
+  if(th.length){
+    h+='<div class="card" style="margin-bottom:18px"><div class="card-h"><h3>◷ Termine heute</h3></div><div class="card-b stack">';
+    th.forEach(l=>{
+      h+='<div class="listitem"><div class="avatar" style="background:var(--ok-soft);color:var(--ok)">'+fmtTime(l.termin.at)+'</div>'+
+        '<div class="lead"><b>'+esc(l.unternehmen)+'</b><span class="small mut">'+esc(displayName(l))+
+        (l.termin.typ?' · '+esc(l.termin.typ):'')+(l.termin.ort?' · '+esc(l.termin.ort):'')+'</span></div>'+
+        '<button class="btn sm" onclick="openLead(\''+l.id+'\')">Öffnen</button>'+
+        '<button class="btn sm" onclick="exportICS(\''+l.id+'\')">Kalender</button></div>';
+    });
+    h+='</div></div>';
+  }
+
+  h+='<div class="card"><div class="card-h"><h3>☎ Call-Liste</h3>'+
+     '<span class="tag">'+q.length+' Leads</span><div class="spacer"></div>'+
+     (q.length?'<button class="btn ok" onclick="startNextCall()">▶ Ersten anrufen</button>':'')+
+     '</div>';
+  if(!q.length){
+    h+='<div class="empty"><div class="ic">☕</div><h4>Nichts mehr offen</h4>'+
+       '<p class="small">Keine fälligen Wiedervorlagen und keine neuen Leads mit Telefonnummer.</p>'+
+       '<div class="wrapflex" style="margin-top:14px;justify-content:center">'+
+       '<button class="btn primary" onclick="openLead(null)">＋ Lead anlegen</button> '+
+       '<button class="btn" onclick="go(\'daten\')">⇅ Leads importieren</button></div></div>';
+  }else{
+    h+='<div class="card-b stack" style="padding-top:12px">';
+    q.slice(0,60).forEach((l,i)=>{
+      const r=l.nextAt?relDay(l.nextAt):{txt:'Neu – noch nie angerufen',cls:''};
+      h+='<div class="listitem">'+
+        '<div class="avatar">'+esc(initials(l))+'</div>'+
+        '<div class="lead"><b>'+esc(l.unternehmen||'(ohne Firma)')+'</b>'+
+          '<span class="small mut">'+esc(displayName(l))+(l.position?' · '+esc(l.position):'')+' · '+esc(phoneOf(l)||'keine Nummer')+'</span>'+
+          (l.trigger?'<div style="margin-top:6px"><span class="trigger-chip">⚡ '+esc(l.trigger)+'</span></div>':'')+
+          (l.nextNote?'<div class="small mut" style="margin-top:5px">📝 '+esc(l.nextNote)+'</div>':'')+
+        '</div>'+
+        '<div style="text-align:right"><span class="tag '+STATUS[l.status].cls+'">'+STATUS[l.status].label+'</span>'+
+          '<div class="due '+r.cls+'" style="margin-top:5px;font-size:12px">'+esc(r.txt)+'</div>'+
+          (l.attempts?'<div class="small mut">'+l.attempts+'. Versuch</div>':'')+'</div>'+
+        '<button class="btn ok" onclick="startCall(\''+l.id+'\')">☎ Anrufen</button>'+
+        '<button class="btn sm ghost" onclick="openLead(\''+l.id+'\')">⋯</button>'+
+      '</div>';
+    });
+    if(q.length>60)h+='<div class="small mut" style="text-align:center;padding:8px">… und '+(q.length-60)+' weitere</div>';
+    h+='</div>';
+  }
+  h+='</div>';
+  return h;
+}
+function removeDemo(){
+  state.leads=state.leads.filter(l=>!l.demo);
+  toast('Beispieldaten entfernt','ok'); save();
+}
+function kpi(lbl,val,sub,cls,pct){
+  return '<div class="kpi '+(cls||'')+'"><div class="bar"></div><div class="lbl">'+esc(lbl)+'</div>'+
+    '<div class="val">'+val+'</div><div class="sub">'+esc(sub)+'</div>'+
+    (pct!=null?'<div class="progress" style="margin-top:10px"><i style="width:'+pct+'%"></i></div>':'')+'</div>';
+}
+
+/* ================= PIPELINE ================= */
+function vPipeline(){
+  let h='<div class="wrapflex" style="margin-bottom:14px">'+
+    '<div class="pill-nav"><button class="on">Aktive Pipeline</button>'+
+    '<button onclick="go(\'kein-interesse\')">Geschlossen</button></div>'+
+    '<span class="small mut">Karten per Drag &amp; Drop verschieben</span></div>';
+  h+='<div class="kan">';
+  PIPE_COLS.forEach(st=>{
+    const ls=state.leads.filter(l=>l.status===st)
+      .sort((a,b)=>(a.nextAt?new Date(a.nextAt):9e15)-(b.nextAt?new Date(b.nextAt):9e15));
+    h+='<div class="kcol" data-st="'+st+'"><div class="kcol-h"><span class="dot" style="background:'+STATUS[st].color+'"></span>'+
+      '<b>'+STATUS[st].label+'</b><span class="n">'+ls.length+'</span></div><div class="kcol-b" data-st="'+st+'">';
+    ls.forEach(l=>{
+      const r=l.nextAt?relDay(l.nextAt):null;
+      h+='<div class="kcard" draggable="true" data-id="'+l.id+'" onclick="openLead(\''+l.id+'\')">'+
+        '<b>'+esc(l.unternehmen||'(ohne Firma)')+'</b>'+
+        '<div class="who">'+esc(displayName(l))+'</div>'+
+        (l.trigger?'<div class="small" style="margin-top:6px;color:var(--warn)">⚡ '+esc(l.trigger)+'</div>':'')+
+        '<div class="meta">'+
+          (l.termin&&l.termin.at?'<span class="tag g">◷ '+fmtDT(l.termin.at)+'</span>':'')+
+          (r?'<span class="due '+r.cls+'">'+esc(r.txt)+'</span>':'')+
+          (l.potenzial?'<span class="tag">'+esc(l.potenzial)+'</span>':'')+
+        '</div></div>';
+    });
+    if(!ls.length)h+='<div class="small mut" style="text-align:center;padding:14px 4px">leer</div>';
+    h+='</div></div>';
+  });
+  h+='</div>';
+  return h;
+}
+function wireKanban(){
+  let dragId=null;
+  document.querySelectorAll('.kcard').forEach(c=>{
+    c.addEventListener('dragstart',e=>{dragId=c.dataset.id;c.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+    c.addEventListener('dragend',()=>{c.classList.remove('dragging');dragId=null;});
+  });
+  document.querySelectorAll('.kcol-b').forEach(col=>{
+    col.addEventListener('dragover',e=>{e.preventDefault();col.parentElement.classList.add('dragover');});
+    col.addEventListener('dragleave',()=>col.parentElement.classList.remove('dragover'));
+    col.addEventListener('drop',e=>{
+      e.preventDefault();col.parentElement.classList.remove('dragover');
+      const l=state.leads.find(x=>x.id===dragId); if(!l)return;
+      const st=col.dataset.st; if(l.status===st)return;
+      l.status=st; l.updatedAt=new Date().toISOString();
+      if(st==='termin'&&!(l.termin&&l.termin.at)){save();openTerminDialog(l.id);return;}
+      toast(esc(l.unternehmen)+' → '+STATUS[st].label,'ok'); save();
+    });
+  });
+}
+
+/* ================= TERMINE ================= */
+function vTermine(){
+  const now=new Date();
+  const up=upcomingTermine(), past=state.leads.filter(l=>l.termin&&l.termin.at&&new Date(l.termin.at)<startOfDay(now))
+    .sort((a,b)=>new Date(b.termin.at)-new Date(a.termin.at));
+  let h='';
+  h+='<div class="grid g3" style="margin-bottom:18px">'+
+     kpi('Anstehende Termine',up.length,'ab heute','ok')+
+     kpi('Diese Woche',up.filter(l=>new Date(l.termin.at)<=new Date(now.getTime()+7*864e5)).length,'nächste 7 Tage','purple')+
+     kpi('Vergangen',past.length,'zur Nachbereitung','')+'</div>';
+  h+='<div class="sect-h">Anstehend</div>';
+  if(!up.length)h+='<div class="card"><div class="empty"><div class="ic">◷</div><h4>Noch keine Termine</h4><p class="small">Termine entstehen automatisch, wenn du im Anruf „Termin vereinbart“ wählst.</p></div></div>';
+  else{h+='<div class="stack">'+up.map(terminRow).join('')+'</div>';}
+  if(past.length){
+    h+='<div class="sect-h">Vergangen</div><div class="stack">'+past.slice(0,40).map(terminRow).join('')+'</div>';
+  }
+  return h;
+}
+function terminRow(l){
+  const t=l.termin, d=new Date(t.at);
+  const wd=['So','Mo','Di','Mi','Do','Fr','Sa'][d.getDay()];
+  return '<div class="listitem">'+
+    '<div class="avatar" style="background:var(--ok-soft);color:var(--ok);flex-direction:column;font-size:11px;line-height:1.1">'+
+      '<span>'+wd+'</span><b style="font-size:13px">'+d2(d.getDate())+'.'+d2(d.getMonth()+1)+'.</b></div>'+
+    '<div class="lead"><b>'+esc(l.unternehmen)+' · '+fmtTime(t.at)+' Uhr</b>'+
+      '<span class="small mut">'+esc(displayName(l))+(l.position?' ('+esc(l.position)+')':'')+
+      ' · '+(t.dauer||30)+' Min'+(t.typ?' · '+esc(t.typ):'')+(t.ort?' · '+esc(t.ort):'')+'</span>'+
+      (t.note?'<div class="small mut" style="margin-top:4px">📝 '+esc(t.note)+'</div>':'')+'</div>'+
+    '<span class="tag '+STATUS[l.status].cls+'">'+STATUS[l.status].label+'</span>'+
+    '<button class="btn sm" onclick="exportICS(\''+l.id+'\')">⤓ .ics</button>'+
+    '<button class="btn sm" onclick="openTerminDialog(\''+l.id+'\')">Ändern</button>'+
+    '<button class="btn sm ghost" onclick="openLead(\''+l.id+'\')">⋯</button></div>';
+}
+
+/* ================= WIEDERVORLAGE ================= */
+function vWV(){
+  const now=new Date();
+  const ls=state.leads.filter(l=>l.nextAt&&!CLOSED.includes(l.status)&&l.status!=='termin')
+    .sort((a,b)=>new Date(a.nextAt)-new Date(b.nextAt));
+  const closedWV=state.leads.filter(l=>l.nextAt&&CLOSED.includes(l.status))
+    .sort((a,b)=>new Date(a.nextAt)-new Date(b.nextAt));
+  const buckets=[
+    ['Überfällig',ls.filter(l=>new Date(l.nextAt)<startOfDay(now)),'bad'],
+    ['Heute',ls.filter(l=>{const d=new Date(l.nextAt);return d>=startOfDay(now)&&d<=endOfDay(now);}),'warn'],
+    ['Diese Woche',ls.filter(l=>{const d=new Date(l.nextAt);return d>endOfDay(now)&&d<=new Date(now.getTime()+7*864e5);}),''],
+    ['Später',ls.filter(l=>new Date(l.nextAt)>new Date(now.getTime()+7*864e5)),'']
+  ];
+  let h='<div class="grid g4" style="margin-bottom:18px">'+
+    buckets.map(b=>kpi(b[0],b[1].length,'Leads',b[2])).join('')+'</div>';
+  buckets.forEach(b=>{
+    if(!b[1].length)return;
+    h+='<div class="sect-h">'+b[0]+' ('+b[1].length+')</div><div class="stack">'+b[1].map(wvRow).join('')+'</div>';
+  });
+  if(closedWV.length){
+    h+='<div class="sect-h">Geparkt (Kein Interesse / Kein Fit) – Wiedervorlage gesetzt</div><div class="stack">'+closedWV.map(wvRow).join('')+'</div>';
+  }
+  if(!ls.length&&!closedWV.length)h+='<div class="card"><div class="empty"><div class="ic">↻</div><h4>Keine Wiedervorlagen</h4><p class="small">Wenn du im Anruf „Später anrufen“ oder „Kein Interesse“ wählst, landen Leads hier.</p></div></div>';
+  return h;
+}
+function wvRow(l){
+  const r=relDay(l.nextAt);
+  return '<div class="listitem"><div class="avatar">'+esc(initials(l))+'</div>'+
+    '<div class="lead"><b>'+esc(l.unternehmen||'(ohne Firma)')+'</b>'+
+    '<span class="small mut">'+esc(displayName(l))+' · '+esc(phoneOf(l)||'keine Nummer')+'</span>'+
+    (l.nextNote?'<div class="small" style="margin-top:5px;color:var(--txt2)">📝 '+esc(l.nextNote)+'</div>':'')+'</div>'+
+    '<span class="tag '+STATUS[l.status].cls+'">'+STATUS[l.status].label+'</span>'+
+    '<div style="text-align:right;min-width:118px"><div class="due '+r.cls+'">'+esc(r.txt)+'</div>'+
+    '<div class="small mut">'+fmtDT(l.nextAt)+'</div></div>'+
+    '<button class="btn sm" onclick="openWVDialog(\''+l.id+'\')">Verschieben</button>'+
+    '<button class="btn ok sm" onclick="startCall(\''+l.id+'\')">☎</button>'+
+    '<button class="btn sm ghost" onclick="openLead(\''+l.id+'\')">⋯</button></div>';
+}
+
+/* ================= KONTAKTE ================= */
+function leadMatches(l,q){
+  if(!q)return true;
+  q=q.toLowerCase();
+  return [l.unternehmen,l.vorname,l.nachname,l.branche,l.standort,l.telefon,l.telefon2,l.mobil,
+    l.email,l.emailAP,l.kampagne,l.trigger,l.angebot,l.notizen,l.position].some(v=>String(v||'').toLowerCase().includes(q));
+}
+function filteredLeads(){
+  let ls=state.leads.filter(l=>leadMatches(l,filters.q));
+  if(filters.status)ls=ls.filter(l=>l.status===filters.status);
+  if(filters.kampagne)ls=ls.filter(l=>l.kampagne===filters.kampagne);
+  const s=filters.sort;
+  ls.sort((a,b)=>{
+    if(s==='next')return (a.nextAt?new Date(a.nextAt):9e15)-(b.nextAt?new Date(b.nextAt):9e15);
+    if(s==='firma')return String(a.unternehmen).localeCompare(String(b.unternehmen));
+    if(s==='status')return PIPE_COLS.indexOf(a.status)-PIPE_COLS.indexOf(b.status);
+    if(s==='calls')return (b.calls.length)-(a.calls.length);
+    return new Date(b.createdAt)-new Date(a.createdAt);
+  });
+  return ls;
+}
+function vKontakte(){
+  const ls=filteredLeads();
+  const kamps=[...new Set(state.leads.map(l=>l.kampagne).filter(Boolean))];
+  let h='<div class="card" style="margin-bottom:14px"><div class="card-b" style="padding:13px 16px">'+
+   '<div class="wrapflex">'+
+    '<input type="text" style="max-width:250px" placeholder="Suchen …" value="'+esc(filters.q)+'" oninput="filters.q=this.value;renderList()">'+
+    '<select style="max-width:190px" onchange="filters.status=this.value;renderList()"><option value="">Alle Status</option>'+
+      Object.keys(STATUS).map(k=>'<option value="'+k+'"'+(filters.status===k?' selected':'')+'>'+STATUS[k].label+'</option>').join('')+'</select>'+
+    '<select style="max-width:190px" onchange="filters.kampagne=this.value;renderList()"><option value="">Alle Kampagnen</option>'+
+      kamps.map(k=>'<option'+(filters.kampagne===k?' selected':'')+'>'+esc(k)+'</option>').join('')+'</select>'+
+    '<select style="max-width:170px" onchange="filters.sort=this.value;renderList()">'+
+      [['next','Nach Fälligkeit'],['firma','Nach Firma'],['status','Nach Status'],['calls','Nach Anrufen'],['neu','Neueste zuerst']]
+      .map(o=>'<option value="'+o[0]+'"'+(filters.sort===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>'+
+    '<div class="spacer" style="margin-left:auto"></div>'+
+    '<span class="tag">'+ls.length+' / '+state.leads.length+'</span>'+
+    '<button class="btn sm" onclick="exportCSV()">⤓ CSV</button>'+
+    '<button class="btn sm primary" onclick="openLead(null)">＋ Lead</button>'+
+   '</div>'+
+   '<div id="bulkbar" style="display:none;margin-top:11px;padding-top:11px;border-top:1px solid var(--line)" class="wrapflex">'+
+     '<b class="small"><span id="selCount">0</span> ausgewählt</b>'+
+     '<select id="bulkStatus" style="max-width:200px"><option value="">Status setzen …</option>'+
+       Object.keys(STATUS).map(k=>'<option value="'+k+'">'+STATUS[k].label+'</option>').join('')+'</select>'+
+     '<button class="btn sm" onclick="bulkApplyStatus()">Anwenden</button>'+
+     '<button class="btn sm" onclick="bulkWV()">↻ Wiedervorlage</button>'+
+     '<button class="btn sm bad" onclick="bulkDelete()">Löschen</button>'+
+     '<button class="btn sm ghost" onclick="selected.clear();renderList()">Auswahl aufheben</button>'+
+   '</div></div></div>';
+  h+='<div class="card"><div id="listWrap">'+leadTable(ls)+'</div></div>';
+  return h;
+}
+function renderList(){
+  const w=document.getElementById('listWrap');
+  if(!w){render();return;}
+  w.innerHTML=leadTable(filteredLeads());
+  const bb=document.getElementById('bulkbar');
+  if(bb){bb.style.display=selected.size?'flex':'none';const sc=document.getElementById('selCount');if(sc)sc.textContent=selected.size;}
+}
+function leadTable(ls){
+  if(!ls.length)return '<div class="empty"><div class="ic">☰</div><h4>Keine Kontakte gefunden</h4><p class="small">Importiere Leads unter „Import / Export“ oder lege einen Lead an.</p></div>';
+  let h='<div class="t-wrap"><table><thead><tr>'+
+    '<th style="width:34px"><input type="checkbox" onclick="toggleAll(this.checked)" style="width:auto"></th>'+
+    '<th>Unternehmen</th><th>Ansprechpartner</th><th>Telefon</th><th>Status</th><th>Sales Trigger</th>'+
+    '<th>Nächster Schritt</th><th class="right">Calls</th><th></th></tr></thead><tbody>';
+  ls.slice(0,400).forEach(l=>{
+    const r=l.nextAt?relDay(l.nextAt):null;
+    h+='<tr>'+
+      '<td><input type="checkbox" style="width:auto" '+(selected.has(l.id)?'checked':'')+' onclick="toggleSel(\''+l.id+'\',this.checked)"></td>'+
+      '<td onclick="openLead(\''+l.id+'\')" style="cursor:pointer"><div class="t-comp">'+esc(l.unternehmen||'–')+'</div>'+
+        '<div class="t-sub">'+esc([l.branche,l.standort].filter(Boolean).join(' · '))+'</div></td>'+
+      '<td onclick="openLead(\''+l.id+'\')" style="cursor:pointer">'+esc(displayName(l))+
+        (l.position?'<div class="t-sub">'+esc(l.position)+'</div>':'')+'</td>'+
+      '<td>'+(phoneOf(l)?'<a href="'+telHref(phoneOf(l))+'">'+esc(phoneOf(l))+'</a>':'<span class="mut">–</span>')+'</td>'+
+      '<td><span class="tag '+STATUS[l.status].cls+'">'+STATUS[l.status].label+'</span></td>'+
+      '<td>'+(l.trigger?'<span class="small">⚡ '+esc(l.trigger)+'</span>':'<span class="mut">–</span>')+'</td>'+
+      '<td>'+(r?'<span class="due '+r.cls+'">'+esc(r.txt)+'</span>':'<span class="mut">–</span>')+
+        (l.termin&&l.termin.at?'<div class="t-sub" style="color:var(--ok)">◷ '+fmtDT(l.termin.at)+'</div>':'')+'</td>'+
+      '<td class="right">'+(l.calls.length||'–')+'</td>'+
+      '<td><div class="rowbtns">'+(phoneOf(l)?'<button class="btn sm ok" onclick="startCall(\''+l.id+'\')">☎</button>':'')+
+        '<button class="btn sm ghost" onclick="openLead(\''+l.id+'\')">⋯</button></div></td></tr>';
+  });
+  h+='</tbody></table></div>';
+  if(ls.length>400)h+='<div class="small mut" style="padding:10px;text-align:center">Es werden 400 von '+ls.length+' Zeilen angezeigt – Filter nutzen.</div>';
+  return h;
+}
+function toggleSel(id,on){on?selected.add(id):selected.delete(id);renderList();}
+function toggleAll(on){filteredLeads().forEach(l=>on?selected.add(l.id):selected.delete(l.id));renderList();}
+
+/* ================= ANRUFPROTOKOLL ================= */
+let callFilter={outcome:'',range:'30'};
+function vAnrufe(){
+  let cs=allCalls();
+  const now=new Date();
+  if(callFilter.range!=='all'){
+    const days=parseInt(callFilter.range,10);
+    const from=startOfDay(new Date(now.getTime()-(days-1)*864e5));
+    cs=cs.filter(c=>new Date(c.at)>=from);
+  }
+  if(callFilter.outcome)cs=cs.filter(c=>c.outcome===callFilter.outcome);
+  const totalDur=cs.reduce((a,c)=>a+(c.dur||0),0);
+  const gespr=cs.filter(c=>['termin','interesse','kein_interesse','rueckruf'].includes(c.outcome)).length;
+  let h='<div class="grid g4" style="margin-bottom:18px">'+
+    kpi('Anrufe',cs.length,'im Zeitraum')+
+    kpi('Gespräche',gespr,cs.length?Math.round(gespr/cs.length*100)+'% Erreichungsquote':'–','ok')+
+    kpi('Termine',cs.filter(c=>c.outcome==='termin').length,gespr?Math.round(cs.filter(c=>c.outcome==='termin').length/gespr*100)+'% aus Gesprächen':'–','purple')+
+    kpi('Telefonzeit',Math.round(totalDur/60)+' Min',cs.length?'Ø '+fmtDur(totalDur/cs.length)+' pro Call':'–')+'</div>';
+  h+='<div class="card"><div class="card-h">'+
+    '<select style="max-width:180px" onchange="callFilter.range=this.value;render()">'+
+      [['7','Letzte 7 Tage'],['30','Letzte 30 Tage'],['90','Letzte 90 Tage'],['all','Gesamt']]
+      .map(o=>'<option value="'+o[0]+'"'+(callFilter.range===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>'+
+    '<select style="max-width:200px" onchange="callFilter.outcome=this.value;render()"><option value="">Alle Ergebnisse</option>'+
+      Object.keys(OUTCOMES).map(k=>'<option value="'+k+'"'+(callFilter.outcome===k?' selected':'')+'>'+OUTCOMES[k].label+'</option>').join('')+'</select>'+
+    '<div class="spacer"></div><button class="btn sm" onclick="exportCallsCSV()">⤓ Protokoll als CSV</button></div>';
+  if(!cs.length)h+='<div class="empty"><div class="ic">☎</div><h4>Noch keine Anrufe dokumentiert</h4><p class="small">Starte oben rechts einen Call – jeder Anruf wird automatisch mit Dauer und Ergebnis protokolliert.</p></div>';
+  else{
+    h+='<div class="t-wrap"><table><thead><tr><th>Zeitpunkt</th><th>Unternehmen</th><th>Gesprächspartner</th>'+
+      '<th>Ergebnis</th><th class="right">Dauer</th><th>Notiz</th><th></th></tr></thead><tbody>';
+    cs.slice(0,500).forEach(c=>{
+      const o=OUTCOMES[c.outcome]||{label:c.outcome,cls:''};
+      const tagcls=o.cls==='green'?'g':o.cls==='red'?'r':o.cls==='amber'?'y':o.cls==='violet'?'p':'';
+      h+='<tr><td class="small"><b>'+fmtDT(c.at)+'</b></td>'+
+        '<td class="t-comp" style="cursor:pointer" onclick="openLead(\''+c.lead.id+'\')">'+esc(c.lead.unternehmen||'–')+'</td>'+
+        '<td>'+esc(c.person||displayName(c.lead))+'</td>'+
+        '<td><span class="tag '+tagcls+'">'+esc(o.label)+'</span></td>'+
+        '<td class="right" style="font-family:var(--mono)">'+fmtDur(c.dur)+'</td>'+
+        '<td class="small" style="max-width:340px">'+esc(c.note||'')+'</td>'+
+        '<td class="right"><button class="btn sm ghost" onclick="openLead(\''+c.lead.id+'\')">⋯</button></td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  h+='</div>';
+  return h;
+}
+
+/* ================= KEIN INTERESSE ================= */
+function vKI(){
+  const ls=state.leads.filter(l=>CLOSED.includes(l.status))
+    .sort((a,b)=>new Date(b.updatedAt||b.createdAt)-new Date(a.updatedAt||a.createdAt));
+  let h='<div class="grid g3" style="margin-bottom:18px">'+
+    kpi('Kein Interesse',state.leads.filter(l=>l.status==='kein_interesse').length,'mit Wiedervorlage reaktivierbar','bad')+
+    kpi('Kein Fit',state.leads.filter(l=>l.status==='kein_fit').length,'dauerhaft ausgeschlossen','')+
+    kpi('Verloren',state.leads.filter(l=>l.status==='verloren').length,'nach Angebot/Verhandlung','bad')+'</div>';
+  if(!ls.length)return h+'<div class="card"><div class="empty"><div class="ic">⊘</div><h4>Noch nichts geschlossen</h4></div></div>';
+  h+='<div class="card"><div class="t-wrap"><table><thead><tr><th>Unternehmen</th><th>Ansprechpartner</th><th>Status</th>'+
+    '<th>Grund</th><th>Wiedervorlage</th><th class="right">Calls</th><th></th></tr></thead><tbody>';
+  ls.forEach(l=>{
+    const r=l.nextAt?relDay(l.nextAt):null;
+    h+='<tr><td class="t-comp" style="cursor:pointer" onclick="openLead(\''+l.id+'\')">'+esc(l.unternehmen||'–')+'</td>'+
+      '<td>'+esc(displayName(l))+'</td>'+
+      '<td><span class="tag '+STATUS[l.status].cls+'">'+STATUS[l.status].label+'</span></td>'+
+      '<td class="small">'+esc(l.lostReason||'–')+'</td>'+
+      '<td>'+(r?'<span class="due '+r.cls+'">'+esc(r.txt)+'</span>':'<span class="mut">keine</span>')+'</td>'+
+      '<td class="right">'+(l.calls.length||'–')+'</td>'+
+      '<td><div class="rowbtns"><button class="btn sm" onclick="reactivate(\''+l.id+'\')">↻ Reaktivieren</button>'+
+      '<button class="btn sm ghost" onclick="openLead(\''+l.id+'\')">⋯</button></div></td></tr>';
+  });
+  h+='</tbody></table></div></div>';
+  return h;
+}
+function reactivate(id){
+  const l=state.leads.find(x=>x.id===id); if(!l)return;
+  l.status='wiedervorlage'; l.nextAt=l.nextAt||new Date().toISOString(); l.updatedAt=new Date().toISOString();
+  toast(l.unternehmen+' reaktiviert','ok'); save();
+}
+</script>
+<script>
+/* ================= STATISTIK ================= */
+function vStat(){
+  const now=new Date();
+  const mk=(from,to)=>callsBetween(from,to);
+  const today=mk(startOfDay(now),endOfDay(now));
+  const wkStart=startOfDay(new Date(now.getTime()-((now.getDay()+6)%7)*864e5));
+  const week=mk(wkStart,endOfDay(now));
+  const monStart=new Date(now.getFullYear(),now.getMonth(),1);
+  const month=mk(monStart,endOfDay(now));
+  const all=allCalls();
+  const gespr=cs=>cs.filter(c=>['termin','interesse','kein_interesse','rueckruf'].includes(c.outcome)).length;
+  const term=cs=>cs.filter(c=>c.outcome==='termin').length;
+  const pct=(a,b)=>b?Math.round(a/b*100)+'%':'–';
+
+  let h='<div class="grid g4" style="margin-bottom:18px">'+
+    kpi('Anrufe heute',today.length,'Woche: '+week.length+' · Monat: '+month.length)+
+    kpi('Erreichungsquote',pct(gespr(all),all.length),gespr(all)+' Gespräche aus '+all.length+' Anrufen','ok')+
+    kpi('Terminquote',pct(term(all),gespr(all)),term(all)+' Termine aus '+gespr(all)+' Gesprächen','purple')+
+    kpi('Anrufe je Termin',term(all)?(all.length/term(all)).toFixed(1):'–','So viele Calls kostet ein Termin','warn')+'</div>';
+
+  /* Trend letzte 14 Tage */
+  const days=[];
+  for(let i=13;i>=0;i--){
+    const d=new Date(now.getTime()-i*864e5);
+    const cs=mk(startOfDay(d),endOfDay(d));
+    days.push({d:d,n:cs.length,t:term(cs)});
+  }
+  const maxD=Math.max(1,...days.map(x=>x.n));
+  h+='<div class="grid g2" style="margin-bottom:18px">';
+  h+='<div class="card"><div class="card-h"><h3>Anrufe – letzte 14 Tage</h3></div><div class="card-b">'+
+     '<div style="display:flex;align-items:flex-end;gap:6px;height:150px">'+
+     days.map(x=>{
+       const hgt=Math.round(x.n/maxD*120);
+       const wd=['So','Mo','Di','Mi','Do','Fr','Sa'][x.d.getDay()];
+       return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px" title="'+fmtDate(x.d)+': '+x.n+' Anrufe, '+x.t+' Termine">'+
+         '<span class="small mut" style="font-size:10.5px">'+(x.n||'')+'</span>'+
+         '<div style="width:100%;background:var(--accent);border-radius:5px 5px 0 0;height:'+Math.max(2,hgt)+'px;position:relative">'+
+         (x.t?'<div style="position:absolute;bottom:0;left:0;right:0;height:'+Math.round(x.t/Math.max(1,x.n)*hgt)+'px;background:var(--ok);border-radius:0 0 5px 5px"></div>':'')+
+         '</div><span class="small mut" style="font-size:10px">'+wd+'</span></div>';
+     }).join('')+'</div>'+
+     '<div class="wrapflex small mut" style="margin-top:10px"><span class="tag b">Anrufe</span><span class="tag g">davon Termine</span></div>'+
+     '</div></div>';
+
+  /* Ergebnisse */
+  const oc={};
+  all.forEach(c=>{oc[c.outcome]=(oc[c.outcome]||0)+1;});
+  const maxO=Math.max(1,...Object.values(oc));
+  h+='<div class="card"><div class="card-h"><h3>Gesprächsergebnisse (gesamt)</h3></div><div class="card-b"><div class="bars">'+
+    Object.keys(OUTCOMES).map(k=>{
+      const n=oc[k]||0, o=OUTCOMES[k];
+      const col=o.cls==='green'?'var(--ok)':o.cls==='red'?'var(--bad)':o.cls==='amber'?'var(--warn)':o.cls==='violet'?'var(--purple)':'var(--accent)';
+      return '<div class="barrow"><span class="mut">'+esc(o.label)+'</span>'+
+        '<span class="bt"><i style="width:'+(n/maxO*100)+'%;background:'+col+'"></i></span>'+
+        '<b class="right">'+n+'</b></div>';
+    }).join('')+'</div></div></div>';
+  h+='</div>';
+
+  /* Pipeline-Funnel + Kampagnen */
+  h+='<div class="grid g2">';
+  const funnel=[['Leads gesamt',state.leads.length],['Mind. 1 Anruf',state.leads.filter(l=>l.calls.length).length],
+    ['Gespräch geführt',state.leads.filter(l=>l.calls.some(c=>['termin','interesse','kein_interesse','rueckruf'].includes(c.outcome))).length],
+    ['Termin vereinbart',state.leads.filter(l=>l.termin&&l.termin.at).length],
+    ['Angebot',state.leads.filter(l=>['angebot','verhandlung','gewonnen'].includes(l.status)).length],
+    ['Gewonnen',state.leads.filter(l=>l.status==='gewonnen').length]];
+  const maxF=Math.max(1,funnel[0][1]);
+  h+='<div class="card"><div class="card-h"><h3>Funnel</h3></div><div class="card-b"><div class="bars">'+
+    funnel.map((f,i)=>'<div class="barrow"><span class="mut">'+f[0]+'</span><span class="bt">'+
+      '<i style="width:'+(f[1]/maxF*100)+'%;background:linear-gradient(90deg,var(--accent),var(--purple))"></i></span>'+
+      '<b class="right">'+f[1]+'</b></div>').join('')+'</div>'+
+    '<div class="hr"></div><div class="small mut">Von 100 Leads werden im Schnitt '+
+    (state.leads.length?Math.round(funnel[3][1]/state.leads.length*100):0)+' zu einem Termin.</div></div></div>';
+
+  const kmp={};
+  state.leads.forEach(l=>{const k=l.kampagne||'(ohne Kampagne)';kmp[k]=kmp[k]||{n:0,t:0,c:0};kmp[k].n++;
+    if(l.termin&&l.termin.at)kmp[k].t++;kmp[k].c+=l.calls.length;});
+  const kkeys=Object.keys(kmp).sort((a,b)=>kmp[b].n-kmp[a].n).slice(0,10);
+  h+='<div class="card"><div class="card-h"><h3>Kampagnen</h3></div>'+
+    (kkeys.length?'<div class="t-wrap" style="max-height:none"><table><thead><tr><th>Kampagne</th><th class="right">Leads</th><th class="right">Calls</th><th class="right">Termine</th><th class="right">Quote</th></tr></thead><tbody>'+
+    kkeys.map(k=>'<tr><td class="t-comp">'+esc(k)+'</td><td class="right">'+kmp[k].n+'</td><td class="right">'+kmp[k].c+'</td>'+
+      '<td class="right">'+kmp[k].t+'</td><td class="right"><b>'+(kmp[k].n?Math.round(kmp[k].t/kmp[k].n*100):0)+'%</b></td></tr>').join('')+
+    '</tbody></table></div>':'<div class="empty small">Noch keine Daten</div>')+'</div>';
+  h+='</div>';
+  return h;
+}
+
+/* ================= LEITFÄDEN ================= */
+const SCRIPT_TYPES={opener:'Gesprächseinstieg',gatekeeper:'Zentrale / Gatekeeper',einwand:'Einwandbehandlung',close:'Abschluss',voicemail:'Mailbox',info:'Sonstiges'};
+function vLeitfaden(){
+  let h='<div class="wrapflex" style="margin-bottom:14px"><span class="small mut">Platzhalter: '+
+    '<kbd>{firma_lead}</kbd> <kbd>{nachname}</kbd> <kbd>{vorname}</kbd> <kbd>{position}</kbd> <kbd>{branche}</kbd> <kbd>{trigger}</kbd> <kbd>{angebot}</kbd> <kbd>{ich}</kbd> <kbd>{firma}</kbd> <kbd>{telefon_ich}</kbd></span>'+
+    '<div class="spacer" style="margin-left:auto"></div><button class="btn primary" onclick="openScript(null)">＋ Leitfaden</button></div>';
+  h+='<div class="grid g2">';
+  Object.keys(SCRIPT_TYPES).forEach(t=>{
+    const ss=state.scripts.filter(s=>s.typ===t);
+    if(!ss.length)return;
+    h+='<div class="card"><div class="card-h"><h3>'+SCRIPT_TYPES[t]+'</h3><span class="tag">'+ss.length+'</span></div><div class="card-b stack">';
+    ss.forEach(s=>{
+      h+='<div style="border:1px solid var(--line);border-radius:11px;padding:12px 14px">'+
+        '<div class="wrapflex" style="margin-bottom:7px"><b>'+esc(s.name)+'</b><div class="spacer" style="margin-left:auto"></div>'+
+        '<button class="btn sm ghost" onclick="openScript(\''+s.id+'\')">Bearbeiten</button>'+
+        '<button class="btn sm ghost" onclick="delScript(\''+s.id+'\')">Löschen</button></div>'+
+        '<div class="small mut" style="white-space:pre-wrap;line-height:1.55">'+esc(s.text)+'</div></div>';
+    });
+    h+='</div></div>';
+  });
+  h+='</div>';
+  return h;
+}
+function openScript(id){
+  const s=id?state.scripts.find(x=>x.id===id):{id:'',typ:'opener',name:'',text:''};
+  if(!s)return;
+  modal(id?'Leitfaden bearbeiten':'Neuer Leitfaden',
+    '<div class="fgrid"><label class="f"><span>Name</span><input type="text" id="sc_name" value="'+esc(s.name)+'"></label>'+
+    '<label class="f"><span>Typ</span><select id="sc_typ">'+Object.keys(SCRIPT_TYPES).map(k=>'<option value="'+k+'"'+(s.typ===k?' selected':'')+'>'+SCRIPT_TYPES[k]+'</option>').join('')+'</select></label></div>'+
+    '<label class="f"><span>Text</span><textarea id="sc_text" style="min-height:230px">'+esc(s.text)+'</textarea></label>',
+    [['Abbrechen','closeModal()',''],['Speichern','saveScript(\''+(id||'')+'\')','primary']]);
+}
+function saveScript(id){
+  const name=document.getElementById('sc_name').value.trim()||'Ohne Titel';
+  const typ=document.getElementById('sc_typ').value, text=document.getElementById('sc_text').value;
+  if(id){const s=state.scripts.find(x=>x.id===id);Object.assign(s,{name:name,typ:typ,text:text});}
+  else state.scripts.push({id:uid(),name:name,typ:typ,text:text});
+  closeModal();toast('Leitfaden gespeichert','ok');save();
+}
+function delScript(id){
+  if(!confirm('Leitfaden löschen?'))return;
+  state.scripts=state.scripts.filter(s=>s.id!==id);save();
+}
+
+/* ================= IMPORT / EXPORT ================= */
+function vDaten(){
+  return '<div class="grid g2">'+
+  '<div class="card"><div class="card-h"><h3>⇧ Leads importieren</h3></div><div class="card-b">'+
+    '<div class="dz" id="dz"><div style="font-size:26px;margin-bottom:8px">⇧</div>'+
+    '<b>CSV / TSV-Datei hier ablegen</b><div class="small" style="margin-top:5px">oder klicken zum Auswählen · Trennzeichen wird automatisch erkannt</div></div>'+
+    '<input type="file" id="fileIn" accept=".csv,.tsv,.txt" style="display:none">'+
+    '<div class="hr"></div>'+
+    '<label class="f"><span>Alternativ: aus Excel kopieren und hier einfügen</span>'+
+    '<textarea id="pasteIn" placeholder="Firma	Vorname	Nachname	Telefon&#10;Muster GmbH	Max	Muster	0123 456789" style="min-height:110px;font-family:var(--mono);font-size:12.5px"></textarea></label>'+
+    '<button class="btn primary block" onclick="importFromPaste()">Daten einlesen &amp; Spalten zuordnen</button>'+
+  '</div></div>'+
+  '<div class="card"><div class="card-h"><h3>⇩ Export &amp; Backup</h3></div><div class="card-b stack">'+
+    '<button class="btn block" onclick="exportCSV()">⤓ Alle Kontakte als CSV (Excel)</button>'+
+    '<button class="btn block" onclick="exportCallsCSV()">⤓ Anrufprotokoll als CSV</button>'+
+    '<button class="btn block" onclick="exportTermineCSV()">⤓ Termine als CSV</button>'+
+    '<div class="hr"></div>'+
+    '<button class="btn primary block" onclick="quickBackup()">⤓ Vollständiges Backup (JSON)</button>'+
+    '<button class="btn block" onclick="restoreJSON()">⤒ Backup wiederherstellen (JSON)</button>'+
+    '<div class="small mut">Das JSON-Backup enthält alle Leads, Anrufprotokolle, Termine und Leitfäden. Empfehlung: einmal pro Woche sichern.</div>'+
+    '<div class="hr"></div>'+
+    '<button class="btn block" onclick="importV1()">⤒ Aus altem Akquise-Cockpit v1 importieren</button>'+
+    '<div class="small mut">Liest ein JSON-Backup der Vorgängerversion und übernimmt alle Kontakte.</div>'+
+  '</div></div>'+
+  '<div class="card"><div class="card-h"><h3>Datenbestand</h3></div><div class="card-b">'+
+    '<div class="info-row"><span class="k">Leads</span><span class="v b">'+state.leads.length+'</span></div>'+
+    '<div class="info-row"><span class="k">Dokumentierte Anrufe</span><span class="v b">'+allCalls().length+'</span></div>'+
+    '<div class="info-row"><span class="k">Termine</span><span class="v b">'+upcomingTermine(true).length+'</span></div>'+
+    '<div class="info-row"><span class="k">Leitfäden</span><span class="v b">'+state.scripts.length+'</span></div>'+
+    '<div class="info-row"><span class="k">Speicherbedarf</span><span class="v b">'+Math.round((localStorage.getItem(KEY)||'').length/1024)+' KB</span></div>'+
+    '<div class="info-row"><span class="k">Version</span><span class="v">'+APP_VERSION+'</span></div>'+
+  '</div></div>'+
+  '<div class="card"><div class="card-h"><h3>Gefahrenzone</h3></div><div class="card-b">'+
+    '<p class="small mut" style="margin-bottom:12px">Alle Daten liegen ausschließlich in diesem Browser (localStorage). Es findet keine Übertragung an einen Server statt.</p>'+
+    '<button class="btn bad block" onclick="wipeAll()">Alle Daten unwiderruflich löschen</button></div></div>'+
+  '</div>';
+}
+function wireDropzone(){
+  const dz=document.getElementById('dz'), fi=document.getElementById('fileIn');
+  if(!dz)return;
+  dz.onclick=()=>fi.click();
+  fi.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
+    r.onload=ev=>openMapping(ev.target.result);r.readAsText(f,'utf-8');fi.value='';};
+  ['dragenter','dragover'].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add('over');}));
+  ['dragleave','drop'].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove('over');}));
+  dz.addEventListener('drop',e=>{
+    const f=e.dataTransfer.files[0];if(!f)return;
+    const r=new FileReader();r.onload=ev=>openMapping(ev.target.result);r.readAsText(f,'utf-8');
+  });
+}
+function importFromPaste(){
+  const t=document.getElementById('pasteIn').value;
+  if(!t.trim()){toast('Bitte zuerst Daten einfügen','warn');return;}
+  openMapping(t);
+}
+function detectDelim(line){
+  const c={';':0,',':0,'\t':0};
+  let q=false;
+  for(const ch of line){if(ch==='"')q=!q;else if(!q&&c[ch]!=null)c[ch]++;}
+  return Object.keys(c).sort((a,b)=>c[b]-c[a])[0];
+}
+function parseCSV(text,delim){
+  text=text.replace(/^﻿/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  const rows=[];let row=[],cell='',q=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(q){
+      if(ch==='"'){if(text[i+1]==='"'){cell+='"';i++;}else q=false;}
+      else cell+=ch;
+    }else{
+      if(ch==='"')q=true;
+      else if(ch===delim){row.push(cell);cell='';}
+      else if(ch==='\n'){row.push(cell);cell='';rows.push(row);row=[];}
+      else cell+=ch;
+    }
+  }
+  if(cell!==''||row.length){row.push(cell);rows.push(row);}
+  return rows.filter(r=>r.some(c=>String(c).trim()!==''));
+}
+const FIELDS=[['','– nicht importieren –'],['unternehmen','Firmenname'],['website','Website'],['branche','Branche'],
+  ['groesse','Unternehmensgröße'],['standort','Standort'],['telefon','Telefon (Zentrale)'],['telefon2','Telefon 2 / Durchwahl'],
+  ['mobil','Mobil'],['email','E-Mail (allgemein)'],['linkedinFirma','LinkedIn Unternehmen'],
+  ['vorname','Vorname'],['nachname','Nachname'],['position','Position'],['emailAP','E-Mail Ansprechpartner'],
+  ['linkedinAP','LinkedIn Ansprechpartner'],['entscheider','Entscheidungsrolle'],
+  ['quelle','Leadquelle'],['kampagne','Kampagne'],['zielgruppe','Zielgruppe'],['angebot','Angebot'],
+  ['trigger','Sales Trigger'],['painpoint','Pain Point'],['potenzial','Potenzial'],['notizen','Notizen']];
+const AUTOMAP=[
+  [/^(firma|unternehmen|company|firmenname|name des unternehmens)/i,'unternehmen'],
+  [/^(web|url|website|homepage|internet)/i,'website'],
+  [/^(branche|industry|sector)/i,'branche'],
+  [/(mitarbeiter|größe|groesse|size|employees)/i,'groesse'],
+  [/^(stadt|ort|standort|city|plz|adresse|location)/i,'standort'],
+  [/^(mobil|handy|mobile|cell)/i,'mobil'],
+  [/^(tel|telefon|phone|rufnummer|festnetz|zentrale)/i,'telefon'],
+  [/(durchwahl|telefon\s*2|weitere.*nummer)/i,'telefon2'],
+  [/^(e.?mail|mail)$/i,'email'],
+  [/(e.?mail).*(ansprech|kontakt|person)/i,'emailAP'],
+  [/linkedin.*(firma|unternehmen|company)/i,'linkedinFirma'],
+  [/^linkedin/i,'linkedinAP'],
+  [/^(vorname|first ?name|given)/i,'vorname'],
+  [/^(nachname|name|last ?name|surname|familienname)/i,'nachname'],
+  [/^(position|rolle|title|jobtitel|funktion)/i,'position'],
+  [/(entscheid)/i,'entscheider'],
+  [/^(quelle|source|leadquelle)/i,'quelle'],
+  [/(kampagne|campaign)/i,'kampagne'],
+  [/(zielgruppe|segment)/i,'zielgruppe'],
+  [/(angebot|offer|produkt)/i,'angebot'],
+  [/(trigger|anlass)/i,'trigger'],
+  [/(pain|problem|bedarf)/i,'painpoint'],
+  [/(potenzial|potential|umsatz|budget|wert)/i,'potenzial'],
+  [/(notiz|note|bemerkung|kommentar|info)/i,'notizen']
+];
+let importRows=null;
+function openMapping(text){
+  const first=(text.split('\n')[0]||'');
+  const delim=detectDelim(first);
+  const rows=parseCSV(text,delim);
+  if(rows.length<2){toast('Zu wenig Daten erkannt','bad');return;}
+  importRows=rows;
+  const head=rows[0];
+  const guess=head.map(hh=>{const t=String(hh).trim();for(const [re,f] of AUTOMAP)if(re.test(t))return f;return '';});
+  let b='<div class="wrapflex" style="margin-bottom:14px"><span class="tag b">'+(rows.length-1)+' Zeilen erkannt</span>'+
+    '<span class="tag">Trennzeichen: '+(delim==='\t'?'Tab':delim)+'</span></div>'+
+    '<div class="small mut" style="margin-bottom:12px">Ordne jede Spalte einem Feld zu. Die erste Datenzeile dient als Vorschau.</div>';
+  head.forEach((hh,i)=>{
+    b+='<div class="maprow"><div class="src"><b>'+esc(hh)+'</b><div class="small mut" style="overflow:hidden;text-overflow:ellipsis">'+esc((rows[1]||[])[i]||'')+'</div></div>'+
+      '<div style="text-align:center;color:var(--txt3)">→</div>'+
+      '<select id="map_'+i+'">'+FIELDS.map(f=>'<option value="'+f[0]+'"'+(guess[i]===f[0]?' selected':'')+'>'+f[1]+'</option>').join('')+'</select></div>';
+  });
+  b+='<div class="hr"></div><div class="fgrid">'+
+    '<label class="f"><span>Kampagne für alle Zeilen (optional)</span><input type="text" id="imp_kamp" placeholder="z.B. Bauunternehmen NRW Q3"></label>'+
+    '<label class="f"><span>Leadquelle (optional)</span><input type="text" id="imp_quelle" placeholder="z.B. Leadinfo-Export"></label></div>'+
+    '<label class="f"><span>Sales Trigger für alle (optional)</span><input type="text" id="imp_trigger" list="trgList" placeholder="z.B. Website-Besucher (Leadinfo)"></label>'+
+    '<label class="flex small"><input type="checkbox" id="imp_dedupe" checked style="width:auto"> Dubletten anhand Firma + Telefonnummer überspringen</label>';
+  modal('Spalten zuordnen',b,[['Abbrechen','closeModal()',''],['Import starten','runImport()','primary']],'wide');
+}
+function runImport(){
+  const head=importRows[0], map=head.map((_,i)=>document.getElementById('map_'+i).value);
+  if(!map.some(m=>m==='unternehmen'||m==='nachname')){toast('Bitte mindestens Firmenname oder Nachname zuordnen','warn');return;}
+  const kamp=document.getElementById('imp_kamp').value.trim();
+  const quelle=document.getElementById('imp_quelle').value.trim();
+  const trg=document.getElementById('imp_trigger').value.trim();
+  const dedupe=document.getElementById('imp_dedupe').checked;
+  const key=l=>(String(l.unternehmen||'').toLowerCase().trim()+'|'+String(phoneOf(l)).replace(/\D/g,''));
+  const existing=new Set(state.leads.map(key));
+  let added=0,skipped=0;
+  for(let r=1;r<importRows.length;r++){
+    const row=importRows[r];
+    const l=normLead({id:uid(),status:'neu',createdAt:new Date().toISOString()});
+    map.forEach((f,i)=>{if(f)l[f]=String(row[i]==null?'':row[i]).trim();});
+    if(!l.unternehmen&&!l.nachname){skipped++;continue;}
+    if(kamp)l.kampagne=l.kampagne||kamp;
+    if(quelle)l.quelle=l.quelle||quelle;
+    if(trg)l.trigger=l.trigger||trg;
+    if(dedupe&&existing.has(key(l))){skipped++;continue;}
+    existing.add(key(l));
+    state.leads.push(l);added++;
+  }
+  closeModal();importRows=null;
+  toast(added+' Leads importiert'+(skipped?', '+skipped+' übersprungen':''),'ok');
+  save();go('kontakte');
+}
+function csvCell(v){v=String(v==null?'':v);return /[";\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+function csvFile(name,rows){
+  const csv=rows.map(r=>r.map(csvCell).join(';')).join('\r\n');
+  download(name,'﻿'+csv,'text/csv;charset=utf-8');
+  toast('Export erstellt','ok');
+}
+function exportCSV(){
+  const head=['Unternehmen','Website','Branche','Größe','Standort','Telefon','Telefon 2','Mobil','E-Mail Firma',
+    'LinkedIn Firma','Vorname','Nachname','Position','E-Mail AP','LinkedIn AP','Entscheidungsrolle','Quelle','Kampagne',
+    'Zielgruppe','Angebot','Sales Trigger','Pain Point','Potenzial','Status','Anrufe','Letzter Anruf','Nächster Schritt',
+    'Notiz nächster Schritt','Termin','Notizen'];
+  const rows=[head];
+  filteredLeads().forEach(l=>rows.push([l.unternehmen,l.website,l.branche,l.groesse,l.standort,l.telefon,l.telefon2,l.mobil,
+    l.email,l.linkedinFirma,l.vorname,l.nachname,l.position,l.emailAP,l.linkedinAP,l.entscheider,l.quelle,l.kampagne,
+    l.zielgruppe,l.angebot,l.trigger,l.painpoint,l.potenzial,STATUS[l.status].label,l.calls.length,
+    l.lastCallAt?fmtDT(l.lastCallAt):'',l.nextAt?fmtDT(l.nextAt):'',l.nextNote,
+    l.termin&&l.termin.at?fmtDT(l.termin.at):'',l.notizen]));
+  csvFile('kontakte_'+todayISO()+'.csv',rows);
+}
+function exportCallsCSV(){
+  const rows=[['Datum','Uhrzeit','Unternehmen','Ansprechpartner','Telefon','Ergebnis','Dauer (Sek)','Dauer','Notiz','Status danach','Kampagne']];
+  allCalls().forEach(c=>{
+    const d=new Date(c.at);
+    rows.push([fmtDate(c.at),d2(d.getHours())+':'+d2(d.getMinutes()),c.lead.unternehmen,c.person||displayName(c.lead),
+      phoneOf(c.lead),(OUTCOMES[c.outcome]||{label:c.outcome}).label,c.dur||0,fmtDur(c.dur),c.note||'',
+      STATUS[c.lead.status].label,c.lead.kampagne]);
+  });
+  csvFile('anrufprotokoll_'+todayISO()+'.csv',rows);
+}
+function exportTermineCSV(){
+  const rows=[['Datum','Uhrzeit','Dauer','Unternehmen','Ansprechpartner','Position','Telefon','E-Mail','Typ','Ort','Notiz','Status']];
+  upcomingTermine(true).forEach(l=>rows.push([fmtDate(l.termin.at),fmtTime(l.termin.at),(l.termin.dauer||30)+' Min',
+    l.unternehmen,displayName(l),l.position,phoneOf(l),l.emailAP||l.email,l.termin.typ||'',l.termin.ort||'',
+    l.termin.note||'',STATUS[l.status].label]));
+  csvFile('termine_'+todayISO()+'.csv',rows);
+}
+function quickBackup(){
+  download('akquise-cockpit-backup-'+todayISO()+'.json',
+    JSON.stringify(Object.assign({},state,{exportedAt:new Date().toISOString(),app:'akquise-cockpit',version:APP_VERSION}),null,1),
+    'application/json');
+  toast('Backup gespeichert','ok');
+}
+function pickFile(accept,cb){
+  const i=document.createElement('input');i.type='file';i.accept=accept;
+  i.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>cb(ev.target.result);r.readAsText(f,'utf-8');};
+  i.click();
+}
+function restoreJSON(){
+  pickFile('.json',txt=>{
+    try{
+      const d=JSON.parse(txt);
+      if(!d||!Array.isArray(d.leads))throw 0;
+      if(!confirm('Backup mit '+d.leads.length+' Leads wiederherstellen?\n\nALLE aktuellen Daten in diesem Browser werden ersetzt.'))return;
+      state={version:2,leads:d.leads.map(normLead),
+        scripts:(Array.isArray(d.scripts)&&d.scripts.length)?d.scripts:JSON.parse(JSON.stringify(DEFAULT_SCRIPTS)),
+        settings:Object.assign({},DEFAULT_SETTINGS,d.settings||{}),theme:d.theme||'dark'};
+      applyTheme();toast(state.leads.length+' Leads wiederhergestellt','ok');save();go('heute');
+    }catch(e){toast('Keine gültige Backup-Datei','bad');}
+  });
+}
+function importV1(){
+  pickFile('.json',txt=>{
+    try{
+      const d=JSON.parse(txt);
+      const src=Array.isArray(d.contacts)?d.contacts:(Array.isArray(d.leads)?d.leads:null);
+      if(!src)throw 0;
+      const MAP={neu:'neu',linkedin:'recherche',vernetzt:'recherche',email:'recherche',geantwortet:'interesse',
+        termin:'termin',kein_interesse:'kein_interesse',nicht_kontaktieren:'kein_fit'};
+      let n=0;
+      src.forEach(c=>{
+        const l=normLead({id:uid(),createdAt:c.createdAt||new Date().toISOString(),
+          unternehmen:c.unternehmen||'',branche:c.branche||'',website:c.website||'',standort:c.standort||c.ort||'',
+          telefon:c.telefon||'',vorname:c.vorname||'',nachname:c.nachname||'',position:c.position||'',
+          emailAP:c.email||'',linkedinAP:c.linkedin||'',notizen:c.notizen||'',
+          kampagne:c.kampagne||'Import v1',quelle:'Akquise-Cockpit v1',
+          status:MAP[c.stage]||'neu',
+          tags:Array.isArray(c.tags)?c.tags:[]});
+        state.leads.push(l);n++;
+      });
+      toast(n+' Kontakte aus v1 importiert','ok');save();go('kontakte');
+    }catch(e){toast('Datei konnte nicht gelesen werden','bad');}
+  });
+}
+function wipeAll(){
+  if(!confirm('Wirklich ALLE Daten löschen? Das kann nicht rückgängig gemacht werden.'))return;
+  if(!confirm('Letzte Warnung: Alle Leads, Anrufe und Termine werden gelöscht.'))return;
+  const th=state.theme;state=blank();state.theme=th;selected.clear();
+  toast('Alle Daten gelöscht','warn');save();go('heute');
+}
+
+/* ================= EINSTELLUNGEN ================= */
+function vSettings(){
+  const s=state.settings;
+  const f=(id,lbl,val,type,ph)=>'<label class="f"><span>'+lbl+'</span><input type="'+(type||'text')+'" id="set_'+id+'" value="'+esc(val)+'" placeholder="'+esc(ph||'')+'"></label>';
+  return '<div class="grid g2">'+
+  '<div class="card"><div class="card-h"><h3>Profil</h3></div><div class="card-b">'+
+    f('ich','Dein Name',s.ich)+f('firma','Deine Firma',s.firma)+
+    f('telefonIch','Deine Rückrufnummer',s.telefonIch,'tel','+49 …')+
+    f('emailIch','Deine E-Mail',s.emailIch,'email')+
+    f('calendly','Terminlink (Calendly o.ä.)',s.calendly,'url')+
+  '</div></div>'+
+  '<div class="card"><div class="card-h"><h3>Tagesziele</h3></div><div class="card-b"><div class="fgrid f3">'+
+    f('zielCalls','Anrufe / Tag',s.zielCalls,'number')+
+    f('zielGespraeche','Gespräche / Tag',s.zielGespraeche,'number')+
+    f('zielTermine','Termine / Tag',s.zielTermine,'number')+
+  '</div><div class="hr"></div><div class="fgrid">'+
+    f('terminDauer','Standard-Termindauer (Min)',s.terminDauer,'number')+
+    f('notReachedDays','Wiedervorlage bei „nicht erreicht“ (Tage)',s.notReachedDays,'number')+
+  '</div>'+f('maxAttempts','Max. Anrufversuche bevor Warnung',s.maxAttempts,'number')+
+  '</div></div>'+
+  '<div class="card"><div class="card-h"><h3>Darstellung</h3></div><div class="card-b">'+
+    '<div class="wrapflex"><button class="btn" onclick="toggleTheme()">◐ Zwischen Hell und Dunkel wechseln</button></div>'+
+    '<div class="hr"></div><div class="small mut">Tastenkürzel:<br>'+
+    '<kbd>/</kbd> Suche · <kbd>N</kbd> neuer Lead · <kbd>C</kbd> nächsten Lead anrufen<br>'+
+    'Im Anruf: <kbd>1</kbd>–<kbd>8</kbd> Ergebnis wählen · <kbd>Esc</kbd> abbrechen · <kbd>Leertaste</kbd> Timer pausieren</div>'+
+  '</div></div>'+
+  '<div class="card"><div class="card-h"><h3>Über</h3></div><div class="card-b">'+
+    '<div class="info-row"><span class="k">Version</span><span class="v">'+APP_VERSION+'</span></div>'+
+    '<div class="info-row"><span class="k">Speicherort</span><span class="v">Lokal im Browser (localStorage)</span></div>'+
+    '<div class="info-row"><span class="k">Datenschutz</span><span class="v">Keine Server-Übertragung, keine externen Skripte</span></div>'+
+    '<div class="hr"></div><p class="small mut">Tipp: Die Datei funktioniert auch offline. Für Backups regelmäßig unter „Import / Export“ ein JSON exportieren.</p>'+
+  '</div></div>'+
+  '</div><div style="margin-top:16px"><button class="btn primary lg" onclick="saveSettings()">Einstellungen speichern</button></div>';
+}
+function saveSettings(){
+  const g=id=>{const e=document.getElementById('set_'+id);return e?e.value:'';};
+  const s=state.settings;
+  ['ich','firma','telefonIch','emailIch','calendly'].forEach(k=>s[k]=g(k));
+  ['zielCalls','zielGespraeche','zielTermine','terminDauer','notReachedDays','maxAttempts']
+    .forEach(k=>{const v=parseInt(g(k),10);if(!isNaN(v))s[k]=v;});
+  toast('Einstellungen gespeichert','ok');save();
+}
+function toggleTheme(){
+  state.theme=state.theme==='dark'?'light':'dark';applyTheme();saveQuiet();
+}
+function applyTheme(){document.documentElement.setAttribute('data-theme',state.theme||'dark');}
+</script>
+<script>
+/* ================= Modal ================= */
+function modal(title,body,btns,size){
+  document.getElementById('modalTitle').innerHTML=title;
+  document.getElementById('modalBody').innerHTML=body;
+  document.getElementById('modalFoot').innerHTML=(btns||[]).map(b=>
+    '<button class="btn '+(b[2]||'')+'" onclick="'+b[1].replace(/"/g,'&quot;')+'">'+b[0]+'</button>').join('');
+  const m=document.getElementById('modal');
+  m.className='modal'+(size?' '+size:'');
+  document.getElementById('overlay').classList.add('open');
+  setTimeout(()=>{const i=document.querySelector('#modalBody input,#modalBody textarea,#modalBody select');if(i&&!i.readOnly)i.focus();},60);
+}
+function closeModal(){document.getElementById('overlay').classList.remove('open');}
+function val(id){const e=document.getElementById(id);return e?e.value.trim():'';}
+
+/* ================= Lead-Editor ================= */
+let editingId=null;
+function openLead(id){
+  editingId=id;
+  const l=id?state.leads.find(x=>x.id===id):normLead({id:'',status:'neu'});
+  if(!l)return;
+  const inp=(k,lbl,type,list)=>'<label class="f"><span>'+lbl+'</span><input type="'+(type||'text')+'" id="ed_'+k+'" value="'+esc(l[k]||'')+'"'+(list?' list="'+list+'"':'')+'></label>';
+  let b='<datalist id="trgList">'+TRIGGERS.map(t=>'<option>'+esc(t)+'</option>').join('')+'</datalist>'+
+        '<datalist id="angList">'+ANGEBOTE.map(t=>'<option>'+esc(t)+'</option>').join('')+'</datalist>'+
+        '<datalist id="kampList">'+[...new Set(state.leads.map(x=>x.kampagne).filter(Boolean))].map(t=>'<option>'+esc(t)+'</option>').join('')+'</datalist>';
+  if(id){
+    const r=l.nextAt?relDay(l.nextAt):null;
+    b+='<div class="wrapflex" style="margin-bottom:16px">'+
+      '<span class="tag '+STATUS[l.status].cls+'">'+STATUS[l.status].label+'</span>'+
+      (l.calls.length?'<span class="tag">'+l.calls.length+' Anrufe</span>':'')+
+      (l.termin&&l.termin.at?'<span class="tag g">◷ Termin '+fmtDT(l.termin.at)+'</span>':'')+
+      (r?'<span class="tag y">↻ '+esc(r.txt)+'</span>':'')+
+      '<div class="spacer" style="margin-left:auto"></div>'+
+      (phoneOf(l)?'<button class="btn ok sm" onclick="closeModal();startCall(\''+l.id+'\')">☎ Anrufen</button>':'')+
+      '<button class="btn sm" onclick="openTerminDialog(\''+l.id+'\')">◷ Termin</button>'+
+      '<button class="btn sm" onclick="openWVDialog(\''+l.id+'\')">↻ Wiedervorlage</button></div>';
+  }
+  b+='<div class="sect-h">Unternehmen</div><div class="fgrid">'+
+    inp('unternehmen','Firmenname')+inp('branche','Branche')+
+    inp('website','Website','url')+inp('standort','Standort')+
+    inp('telefon','Telefon (Zentrale)','tel')+inp('telefon2','Telefon 2 / Durchwahl','tel')+
+    inp('email','E-Mail allgemein','email')+inp('groesse','Unternehmensgröße')+
+    inp('linkedinFirma','LinkedIn Unternehmen','url')+
+    '<label class="f"><span>Status</span><select id="ed_status">'+
+      Object.keys(STATUS).map(k=>'<option value="'+k+'"'+(l.status===k?' selected':'')+'>'+STATUS[k].label+'</option>').join('')+'</select></label>'+
+  '</div>';
+  b+='<div class="sect-h">Ansprechpartner</div><div class="fgrid">'+
+    inp('vorname','Vorname')+inp('nachname','Nachname')+
+    inp('position','Position')+inp('entscheider','Entscheidungsrolle')+
+    inp('mobil','Mobil','tel')+inp('emailAP','E-Mail','email')+
+    inp('linkedinAP','LinkedIn Profil','url')+'</div>';
+  b+='<div class="sect-h">Akquise</div>'+
+    '<label class="f"><span>⚡ Sales Trigger – warum rufe ich an?</span><input type="text" id="ed_trigger" list="trgList" value="'+esc(l.trigger)+'" placeholder="z.B. Website-Relaunch, neue Stellenanzeigen …"></label>'+
+    '<div class="fgrid">'+
+    '<label class="f"><span>Angebot</span><input type="text" id="ed_angebot" list="angList" value="'+esc(l.angebot)+'"></label>'+
+    '<label class="f"><span>Kampagne</span><input type="text" id="ed_kampagne" list="kampList" value="'+esc(l.kampagne)+'"></label>'+
+    inp('quelle','Leadquelle')+inp('zielgruppe','Zielgruppe')+
+    inp('painpoint','Pain Point')+inp('potenzial','Geschätztes Potenzial')+'</div>'+
+    '<label class="f"><span>Notizen</span><textarea id="ed_notizen">'+esc(l.notizen)+'</textarea></label>';
+  if(id&&l.calls.length){
+    b+='<div class="sect-h">Gesprächsverlauf ('+l.calls.length+')</div><div class="tl">'+
+      l.calls.slice().reverse().map(c=>{
+        const o=OUTCOMES[c.outcome]||{label:c.outcome,cls:''};
+        return '<div class="tli '+o.cls+'"><div class="when">'+fmtDT(c.at)+' · '+fmtDur(c.dur)+(c.person?' · '+esc(c.person):'')+'</div>'+
+          '<div class="what">'+esc(o.label)+'</div>'+(c.note?'<div class="note">'+esc(c.note)+'</div>':'')+'</div>';
+      }).join('')+'</div>';
+  }
+  const btns=[['Abbrechen','closeModal()','']];
+  if(id)btns.unshift(['Löschen','deleteLead(\''+id+'\')','bad']);
+  btns.push(['Speichern','saveLead()','primary']);
+  modal(id?esc(l.unternehmen||'Lead')+' <span class="mut small" style="font-weight:400">bearbeiten</span>':'Neuen Lead anlegen',b,btns,'wide');
+}
+function saveLead(){
+  const keys=['unternehmen','branche','website','standort','telefon','telefon2','email','groesse','linkedinFirma',
+    'vorname','nachname','position','entscheider','mobil','emailAP','linkedinAP','trigger','angebot','kampagne',
+    'quelle','zielgruppe','painpoint','potenzial','notizen'];
+  let l;
+  if(editingId){l=state.leads.find(x=>x.id===editingId);}
+  else{l=normLead({id:uid(),status:'neu',createdAt:new Date().toISOString()});state.leads.push(l);}
+  keys.forEach(k=>{const e=document.getElementById('ed_'+k);if(e)l[k]=e.value.trim();});
+  const st=document.getElementById('ed_status');if(st)l.status=st.value;
+  l.updatedAt=new Date().toISOString();
+  if(!l.unternehmen&&!l.nachname)l.unternehmen='(ohne Namen)';
+  closeModal();toast('Gespeichert','ok');save();
+}
+function deleteLead(id){
+  if(!confirm('Diesen Lead inklusive Anrufhistorie löschen?'))return;
+  state.leads=state.leads.filter(l=>l.id!==id);selected.delete(id);
+  closeModal();toast('Lead gelöscht','warn');save();
+}
+function bulkApplyStatus(){
+  const st=document.getElementById('bulkStatus').value;if(!st)return;
+  state.leads.forEach(l=>{if(selected.has(l.id)){l.status=st;l.updatedAt=new Date().toISOString();}});
+  toast(selected.size+' Leads aktualisiert','ok');selected.clear();save();
+}
+function bulkDelete(){
+  if(!confirm(selected.size+' Leads löschen?'))return;
+  state.leads=state.leads.filter(l=>!selected.has(l.id));selected.clear();toast('Gelöscht','warn');save();
+}
+function bulkWV(){
+  bulkIds=[...selected];
+  openWVDialog(null,true);
+}
+let bulkIds=null;
+
+/* ================= Wiedervorlage-Dialog ================= */
+const WV_PRESETS=[
+  ['In 2 Stunden',()=>new Date(Date.now()+2*36e5)],
+  ['Heute Nachmittag',()=>atHour(new Date(),15,0)],
+  ['Morgen früh',()=>atHour(new Date(Date.now()+864e5),9,0)],
+  ['Morgen Nachmittag',()=>atHour(new Date(Date.now()+864e5),14,0)],
+  ['In 3 Tagen',()=>atHour(new Date(Date.now()+3*864e5),9,0)],
+  ['In 1 Woche',()=>atHour(new Date(Date.now()+7*864e5),9,0)],
+  ['In 2 Wochen',()=>atHour(new Date(Date.now()+14*864e5),9,0)],
+  ['In 1 Monat',()=>atHour(addMonths(new Date(),1),9,0)],
+  ['In 2 Monaten',()=>atHour(addMonths(new Date(),2),9,0)],
+  ['In 3 Monaten',()=>atHour(addMonths(new Date(),3),9,0)],
+  ['In 6 Monaten',()=>atHour(addMonths(new Date(),6),9,0)],
+  ['In 12 Monaten',()=>atHour(addMonths(new Date(),12),9,0)]
+];
+function toLocalInput(d){d=new Date(d);return d.getFullYear()+'-'+d2(d.getMonth()+1)+'-'+d2(d.getDate())+'T'+d2(d.getHours())+':'+d2(d.getMinutes());}
+function wvChips(targetId,sel){
+  return '<div class="chiprow" style="margin-bottom:12px">'+WV_PRESETS.map((p,i)=>
+    '<button type="button" class="chip'+(sel===i?' on':'')+'" onclick="setWV(this,'+i+',\''+targetId+'\')">'+p[0]+'</button>').join('')+'</div>';
+}
+function setWV(btn,i,targetId){
+  btn.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  btn.classList.add('on');
+  const el=document.getElementById(targetId);
+  if(el)el.value=toLocalInput(WV_PRESETS[i][1]());
+}
+function openWVDialog(id,bulk){
+  const l=id?state.leads.find(x=>x.id===id):null;
+  const cur=l&&l.nextAt?toLocalInput(l.nextAt):toLocalInput(atHour(new Date(Date.now()+3*864e5),9,0));
+  let b='';
+  if(bulk)b+='<div class="tag b" style="margin-bottom:12px">'+bulkIds.length+' Leads ausgewählt</div>';
+  else if(l)b+='<div class="wrapflex" style="margin-bottom:12px"><b>'+esc(l.unternehmen)+'</b><span class="mut small">'+esc(displayName(l))+'</span></div>';
+  b+='<div class="sect-h" style="margin-top:0">Wann erneut anrufen?</div>'+wvChips('wv_at')+
+    '<label class="f"><span>Genauer Zeitpunkt</span><input type="datetime-local" id="wv_at" value="'+cur+'"></label>'+
+    '<label class="f"><span>Notiz für den nächsten Anruf</span><textarea id="wv_note" placeholder="z.B. Herr Meier ist ab KW 34 zurück – auf Angebot X ansprechen">'+esc(l?l.nextNote:'')+'</textarea></label>';
+  modal('↻ Wiedervorlage setzen',b,[['Entfernen',bulk?'closeModal()':'clearWV(\''+(id||'')+'\')',''],['Abbrechen','closeModal()',''],['Speichern','saveWV(\''+(id||'')+'\','+(bulk?'true':'false')+')','primary']]);
+}
+function saveWV(id,bulk){
+  const at=val('wv_at'), note=document.getElementById('wv_note').value.trim();
+  if(!at){toast('Bitte Zeitpunkt wählen','warn');return;}
+  const iso=new Date(at).toISOString();
+  const apply=l=>{l.nextAt=iso;l.nextNote=note;if(!CLOSED.includes(l.status)&&l.status!=='termin')l.status='wiedervorlage';l.updatedAt=new Date().toISOString();};
+  if(bulk){state.leads.forEach(l=>{if(bulkIds.includes(l.id))apply(l);});toast(bulkIds.length+' Wiedervorlagen gesetzt','ok');selected.clear();bulkIds=null;}
+  else{const l=state.leads.find(x=>x.id===id);if(l){apply(l);toast('Wiedervorlage: '+fmtDT(iso),'ok');}}
+  closeModal();save();
+}
+function clearWV(id){
+  const l=state.leads.find(x=>x.id===id);if(l){l.nextAt=null;l.nextNote='';}
+  closeModal();toast('Wiedervorlage entfernt','warn');save();
+}
+
+/* ================= Termin-Dialog ================= */
+const TERMIN_PRESETS=[
+  ['Morgen 10:00',()=>atHour(new Date(Date.now()+864e5),10,0)],
+  ['Morgen 14:00',()=>atHour(new Date(Date.now()+864e5),14,0)],
+  ['Übermorgen 10:00',()=>atHour(new Date(Date.now()+2*864e5),10,0)],
+  ['In 3 Tagen 14:00',()=>atHour(new Date(Date.now()+3*864e5),14,0)],
+  ['Nächste Woche Di 10:00',()=>{const d=new Date(Date.now()+7*864e5);d.setDate(d.getDate()+((2-d.getDay()+7)%7));return atHour(d,10,0);}],
+  ['Nächste Woche Do 14:00',()=>{const d=new Date(Date.now()+7*864e5);d.setDate(d.getDate()+((4-d.getDay()+7)%7));return atHour(d,14,0);}]
+];
+function openTerminDialog(id,fromCall){
+  const l=state.leads.find(x=>x.id===id);if(!l)return;
+  const t=l.termin||{};
+  const cur=t.at?toLocalInput(t.at):toLocalInput(atHour(new Date(Date.now()+2*864e5),10,0));
+  let b='<div class="wrapflex" style="margin-bottom:14px"><b>'+esc(l.unternehmen)+'</b><span class="mut small">'+esc(displayName(l))+'</span></div>'+
+    '<div class="chiprow" style="margin-bottom:12px">'+TERMIN_PRESETS.map((p,i)=>
+      '<button type="button" class="chip" onclick="setTerminPreset(this,'+i+')">'+p[0]+'</button>').join('')+'</div>'+
+    '<div class="fgrid">'+
+    '<label class="f"><span>Datum &amp; Uhrzeit</span><input type="datetime-local" id="tm_at" value="'+cur+'"></label>'+
+    '<label class="f"><span>Dauer (Minuten)</span><input type="number" id="tm_dauer" value="'+(t.dauer||state.settings.terminDauer)+'" step="15" min="15"></label>'+
+    '<label class="f"><span>Art</span><select id="tm_typ">'+
+      ['Telefontermin','Videocall','Vor Ort','Messe'].map(x=>'<option'+(t.typ===x?' selected':'')+'>'+x+'</option>').join('')+'</select></label>'+
+    '<label class="f"><span>Ort / Link</span><input type="text" id="tm_ort" value="'+esc(t.ort||state.settings.calendly)+'"></label>'+
+    '</div>'+
+    '<label class="f"><span>Wer nimmt teil / Vorbereitung</span><textarea id="tm_note" placeholder="z.B. GF + Marketingleiterin, Zahlen zur Sichtbarkeit mitbringen">'+esc(t.note||'')+'</textarea></label>'+
+    '<label class="flex small"><input type="checkbox" id="tm_ics" checked style="width:auto"> Kalendereintrag (.ics) direkt herunterladen</label>';
+  const btns=[['Abbrechen','closeModal()','']];
+  if(t.at)btns.push(['Termin entfernen','removeTermin(\''+id+'\')','bad']);
+  btns.push(['Termin speichern','saveTermin(\''+id+'\','+(fromCall?'true':'false')+')','primary']);
+  modal('◷ Termin vereinbaren',b,btns);
+}
+function setTerminPreset(btn,i){
+  btn.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('tm_at').value=toLocalInput(TERMIN_PRESETS[i][1]());
+}
+function saveTermin(id,fromCall){
+  const l=state.leads.find(x=>x.id===id);if(!l)return;
+  const at=val('tm_at');
+  if(!at){toast('Bitte Datum und Uhrzeit wählen','warn');return;}
+  l.termin={at:new Date(at).toISOString(),dauer:parseInt(val('tm_dauer'),10)||30,
+    typ:val('tm_typ'),ort:val('tm_ort'),note:document.getElementById('tm_note').value.trim()};
+  l.status='termin'; l.nextAt=l.termin.at; l.nextNote='Termin: '+(l.termin.typ||'')+' '+(l.termin.note||'');
+  l.updatedAt=new Date().toISOString();
+  const wantIcs=document.getElementById('tm_ics').checked;
+  closeModal();
+  if(fromCall)closeCall(false);
+  toast('Termin gespeichert: '+fmtDT(l.termin.at),'ok');
+  save();
+  if(wantIcs)setTimeout(()=>exportICS(id),150);
+}
+function removeTermin(id){
+  const l=state.leads.find(x=>x.id===id);if(!l)return;
+  l.termin=null;if(l.status==='termin')l.status='interesse';l.nextAt=null;
+  closeModal();toast('Termin entfernt','warn');save();
+}
+function icsEsc(s){return String(s||'').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');}
+function icsDate(d){d=new Date(d);return d.getUTCFullYear()+d2(d.getUTCMonth()+1)+d2(d.getUTCDate())+'T'+d2(d.getUTCHours())+d2(d.getUTCMinutes())+'00Z';}
+function exportICS(id){
+  const l=state.leads.find(x=>x.id===id);if(!l||!l.termin||!l.termin.at){toast('Kein Termin hinterlegt','warn');return;}
+  const t=l.termin, start=new Date(t.at), end=new Date(start.getTime()+(t.dauer||30)*60000);
+  const s=state.settings;
+  const desc=['Ansprechpartner: '+displayName(l)+(l.position?' ('+l.position+')':''),
+    'Telefon: '+(phoneOf(l)||'-'),'E-Mail: '+(l.emailAP||l.email||'-'),
+    l.trigger?'Sales Trigger: '+l.trigger:'',l.angebot?'Angebot: '+l.angebot:'',
+    t.note?'Notiz: '+t.note:'',l.notizen?'Lead-Notizen: '+l.notizen:''].filter(Boolean).join('\n');
+  const ics=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Akquise-Cockpit//DE','CALSCALE:GREGORIAN','METHOD:PUBLISH',
+    'BEGIN:VEVENT','UID:'+l.id+'@akquise-cockpit','DTSTAMP:'+icsDate(new Date()),
+    'DTSTART:'+icsDate(start),'DTEND:'+icsDate(end),
+    'SUMMARY:'+icsEsc((t.typ||'Termin')+': '+l.unternehmen+(s.firma?' / '+s.firma:'')),
+    'DESCRIPTION:'+icsEsc(desc),
+    'LOCATION:'+icsEsc(t.ort||''),
+    'BEGIN:VALARM','TRIGGER:-PT15M','ACTION:DISPLAY','DESCRIPTION:'+icsEsc('Termin '+l.unternehmen),'END:VALARM',
+    'END:VEVENT','END:VCALENDAR'].join('\r\n');
+  download('termin-'+String(l.unternehmen||'lead').replace(/[^\w\-]+/g,'_').slice(0,40)+'.ics',ics,'text/calendar;charset=utf-8');
+  toast('Kalenderdatei erstellt','ok');
+}
+</script>
+<script>
+/* ================= CALL SCREEN ================= */
+let call={leadId:null,startedAt:0,accum:0,running:false,tick:null,scriptId:null,logged:false};
+const OC_ORDER=['termin','interesse','rueckruf','nicht_erreicht','gatekeeper','kein_interesse','kein_fit','falsche_nummer'];
+
+function elapsedSec(){return Math.round((call.accum+(call.running?Date.now()-call.startedAt:0))/1000);}
+function startNextCall(){
+  const q=callQueue();
+  if(!q.length){toast('Keine offenen Leads in der Warteschlange','warn');go('heute');return;}
+  startCall(q[0].id);
+}
+function startCall(id){
+  const l=state.leads.find(x=>x.id===id); if(!l)return;
+  closeModal();
+  call={leadId:id,startedAt:Date.now(),accum:0,running:true,tick:null,
+    scriptId:(state.scripts.find(s=>s.typ==='opener')||{}).id||null,logged:false};
+  document.getElementById('callscreen').classList.add('open');
+  renderCall();
+  call.tick=setInterval(updateTimer,400); updateTimer();
+}
+function updateTimer(){
+  const t=document.getElementById('callTimer');
+  if(!t)return;
+  t.textContent=fmtDur(elapsedSec());
+  t.classList.toggle('paused',!call.running);
+  document.getElementById('callPulse').style.opacity=call.running?'1':'.25';
+}
+function toggleTimer(){
+  if(call.running){call.accum+=Date.now()-call.startedAt;call.running=false;document.getElementById('pauseBtn').innerHTML='▶ Weiter';}
+  else{call.startedAt=Date.now();call.running=true;document.getElementById('pauseBtn').innerHTML='❚❚ Pause';}
+  updateTimer();
+}
+function closeCall(ask){
+  if(ask&&!call.logged&&elapsedSec()>5){
+    if(!confirm('Anruf ohne Ergebnis verwerfen? Der Anruf wird dann nicht protokolliert.'))return;
+  }
+  clearInterval(call.tick);
+  document.getElementById('callscreen').classList.remove('open');
+  call.leadId=null;
+  render();
+}
+function fillScript(text,l){
+  const s=state.settings;
+  return String(text||'')
+    .replace(/\{firma_lead\}/g,l.unternehmen||'Ihr Unternehmen')
+    .replace(/\{nachname\}/g,l.nachname||'')
+    .replace(/\{vorname\}/g,l.vorname||'')
+    .replace(/\{position\}/g,l.position||'')
+    .replace(/\{branche\}/g,l.branche||'Ihrer Branche')
+    .replace(/\{trigger\}/g,l.trigger||'ein konkreter Anlass auf Ihrer Website')
+    .replace(/\{angebot\}/g,l.angebot||'')
+    .replace(/\{ich\}/g,s.ich||'')
+    .replace(/\{firma\}/g,s.firma||'')
+    .replace(/\{telefon_ich\}/g,s.telefonIch||'');
+}
+function renderCall(){
+  const l=state.leads.find(x=>x.id===call.leadId); if(!l)return;
+  const ph=phoneOf(l), s=state.settings;
+  document.getElementById('callAttempt').textContent=(l.calls.length+1)+'. Kontaktversuch'+
+    (l.calls.length+1>s.maxAttempts?' – Limit erreicht':'');
+
+  /* ---- links ---- */
+  let h='<div class="call-comp">'+esc(l.unternehmen||'(ohne Firma)')+'</div>'+
+    '<div class="call-person">'+esc(displayName(l))+(l.position?' · '+esc(l.position):'')+
+    (l.entscheider?' · <span class="tag b">'+esc(l.entscheider)+'</span>':'')+'</div>';
+  h+='<div class="dialbox"><div class="dialnum"><small>Wählen</small>'+esc(ph||'keine Nummer hinterlegt')+'</div>'+
+    '<div style="margin-left:auto" class="wrapflex">'+
+    (ph?'<a class="btn ok" href="'+telHref(ph)+'">☎ Anruf starten</a>'+
+        '<button class="btn sm" onclick="copyTxt(\''+esc(ph)+'\')">Kopieren</button>':'')+
+    '<button class="btn sm" onclick="closeCall(false);openLead(\''+l.id+'\')">Bearbeiten</button></div></div>';
+  if(l.trigger)h+='<div style="margin-bottom:14px"><span class="trigger-chip" style="font-size:14px;padding:8px 14px">⚡ '+esc(l.trigger)+'</span></div>';
+  h+='<div class="card" style="margin-bottom:14px"><div class="card-b" style="padding:6px 16px">';
+  const rows=[['Weitere Nummern',[l.telefon,l.telefon2,l.mobil].filter(Boolean).join(' · ')],
+    ['E-Mail',l.emailAP||l.email],['Website',l.website?'<a href="'+esc(l.website.startsWith('http')?l.website:'https://'+l.website)+'" target="_blank" rel="noopener">'+esc(l.website)+'</a>':''],
+    ['LinkedIn',l.linkedinAP?'<a href="'+esc(l.linkedinAP)+'" target="_blank" rel="noopener">Profil öffnen</a>':''],
+    ['Branche / Größe',[l.branche,l.groesse].filter(Boolean).join(' · ')],['Standort',l.standort],
+    ['Angebot',l.angebot],['Pain Point',l.painpoint],['Potenzial',l.potenzial],
+    ['Kampagne',[l.kampagne,l.quelle].filter(Boolean).join(' · ')]];
+  rows.forEach(r=>{if(r[1])h+='<div class="info-row"><span class="k">'+r[0]+'</span><span class="v">'+(r[0]==='Website'||r[0]==='LinkedIn'?r[1]:esc(r[1]))+'</span></div>';});
+  h+='</div></div>';
+  if(l.nextNote)h+='<div class="script-box" style="border-color:var(--warn)"><h5 style="color:var(--warn)">Notiz vom letzten Mal</h5>'+esc(l.nextNote)+'</div>';
+  if(l.notizen)h+='<div class="script-box"><h5>Notizen</h5>'+esc(l.notizen)+'</div>';
+  if(l.calls.length){
+    h+='<div class="sect-h">Bisherige Anrufe ('+l.calls.length+')</div><div class="tl">'+
+      l.calls.slice().reverse().slice(0,8).map(c=>{
+        const o=OUTCOMES[c.outcome]||{label:c.outcome,cls:''};
+        return '<div class="tli '+o.cls+'"><div class="when">'+fmtDT(c.at)+' · '+fmtDur(c.dur)+'</div>'+
+          '<div class="what">'+esc(o.label)+'</div>'+(c.note?'<div class="note">'+esc(c.note)+'</div>':'')+'</div>';
+      }).join('')+'</div>';
+  }
+  document.getElementById('callLeft').innerHTML=h;
+
+  /* ---- rechts ---- */
+  let r='<div class="sect-h" style="margin-top:0">Gesprächsleitfaden</div>'+
+    '<div class="chiprow" style="margin-bottom:12px">'+
+    state.scripts.map(sc=>'<button class="chip'+(sc.id===call.scriptId?' on':'')+'" onclick="pickScript(\''+sc.id+'\')">'+esc(sc.name)+'</button>').join('')+'</div>';
+  const sc=state.scripts.find(x=>x.id===call.scriptId)||state.scripts[0];
+  if(sc)r+='<div class="script-box"><h5>'+esc(sc.name)+'</h5>'+esc(fillScript(sc.text,l))+'</div>';
+  r+='<label class="f"><span>Gesprächsnotiz (wird protokolliert)</span>'+
+     '<textarea id="live_note" placeholder="Stichpunkte während des Gesprächs …" style="min-height:88px"></textarea></label>';
+  r+='<div class="sect-h">Ergebnis festhalten</div><div class="outcomes">';
+  OC_ORDER.forEach((k,i)=>{
+    const o=OUTCOMES[k];
+    const desc={termin:'Datum wählen, landet in der Pipeline',interesse:'Unterlagen senden + Wiedervorlage',
+      rueckruf:'Wiedervorlage mit Info zum Ansprechpartner',nicht_erreicht:'Automatisch neu einplanen',
+      gatekeeper:'Ansprechpartner notieren, neu versuchen',kein_interesse:'Wiedervorlage 1–12 Monate',
+      kein_fit:'Dauerhaft ausschließen',falsche_nummer:'Nummer korrigieren / recherchieren'}[k];
+    r+='<button class="oc '+o.cls+'" onclick="oc(\''+k+'\')"><span class="oi">'+o.icon+'</span>'+
+      '<span><b>'+o.label+'</b><small>'+desc+'</small></span>'+
+      '<kbd style="margin-left:auto">'+(i+1)+'</kbd></button>';
+  });
+  r+='</div>';
+  document.getElementById('callRight').innerHTML=r;
+}
+function pickScript(id){call.scriptId=id;renderCall();}
+function copyTxt(t){
+  if(navigator.clipboard)navigator.clipboard.writeText(t).then(()=>toast('Kopiert','ok'),()=>{});
+  else toast(t,'');
+}
+function liveNote(){const e=document.getElementById('live_note');return e?e.value.trim():'';}
+
+/* ---------- Outcome-Dialoge ---------- */
+function oc(kind){
+  const l=state.leads.find(x=>x.id===call.leadId); if(!l)return;
+  if(call.running)toggleTimer();
+  const note=liveNote();
+  const noteField='<label class="f"><span>Gesprächsnotiz</span><textarea id="oc_note">'+esc(note)+'</textarea></label>';
+  const personField='<label class="f"><span>Mit wem gesprochen?</span><input type="text" id="oc_person" value="'+esc(displayName(l))+'"></label>';
+  if(kind==='termin'){
+    modal('✔ Termin vereinbart',
+      '<div class="wrapflex" style="margin-bottom:12px"><b>'+esc(l.unternehmen)+'</b></div>'+
+      '<div class="chiprow" style="margin-bottom:12px">'+TERMIN_PRESETS.map((p,i)=>
+        '<button type="button" class="chip" onclick="setTerminPreset(this,'+i+')">'+p[0]+'</button>').join('')+'</div>'+
+      '<div class="fgrid">'+
+      '<label class="f"><span>Datum &amp; Uhrzeit</span><input type="datetime-local" id="tm_at" value="'+toLocalInput(atHour(new Date(Date.now()+2*864e5),10,0))+'"></label>'+
+      '<label class="f"><span>Dauer (Min)</span><input type="number" id="tm_dauer" value="'+state.settings.terminDauer+'" step="15" min="15"></label>'+
+      '<label class="f"><span>Art</span><select id="tm_typ">'+['Telefontermin','Videocall','Vor Ort','Messe'].map(x=>'<option>'+x+'</option>').join('')+'</select></label>'+
+      '<label class="f"><span>Ort / Link</span><input type="text" id="tm_ort" value="'+esc(state.settings.calendly)+'"></label></div>'+
+      personField+
+      '<label class="f"><span>Notiz zum Termin / Vorbereitung</span><textarea id="tm_note">'+esc(note)+'</textarea></label>'+
+      '<label class="flex small"><input type="checkbox" id="tm_ics" checked style="width:auto"> Kalendereintrag (.ics) herunterladen</label>',
+      [['Zurück','closeModal()',''],['Termin speichern','confirmTermin()','ok']]);
+    return;
+  }
+  if(kind==='interesse'){
+    modal('★ Interesse – Unterlagen senden',
+      personField+noteField+
+      '<div class="sect-h">Wiedervorlage</div>'+wvChips('oc_at',4)+
+      '<label class="f"><span>Zeitpunkt</span><input type="datetime-local" id="oc_at" value="'+toLocalInput(atHour(new Date(Date.now()+3*864e5),9,0))+'"></label>'+
+      '<label class="f"><span>Was ist zugesagt?</span><input type="text" id="oc_next" placeholder="z.B. Analyse per Mail, Freitag nachfassen"></label>',
+      [['Zurück','closeModal()',''],['Speichern','confirmSimple(\'interesse\',true)','ok']]);
+    return;
+  }
+  if(kind==='rueckruf'){
+    modal('↻ Später anrufen',
+      personField+
+      '<div class="fgrid"><label class="f"><span>Richtiger Ansprechpartner (falls abweichend)</span><input type="text" id="oc_ap" placeholder="Vorname Nachname"></label>'+
+      '<label class="f"><span>Position / Durchwahl</span><input type="text" id="oc_apinfo" placeholder="z.B. Marketingleiter, DW -25"></label></div>'+
+      noteField+
+      '<div class="sect-h">Wann erneut anrufen?</div>'+wvChips('oc_at',2)+
+      '<label class="f"><span>Zeitpunkt</span><input type="datetime-local" id="oc_at" value="'+toLocalInput(atHour(new Date(Date.now()+864e5),9,0))+'"></label>'+
+      '<label class="f"><span>Merker für den nächsten Anruf</span><input type="text" id="oc_next" placeholder="z.B. ab 8 Uhr erreichbar, auf Messe ansprechen"></label>',
+      [['Zurück','closeModal()',''],['Wiedervorlage setzen','confirmSimple(\'rueckruf\',true)','primary']]);
+    return;
+  }
+  if(kind==='nicht_erreicht'){
+    const def=atHour(new Date(Date.now()+state.settings.notReachedDays*864e5),9,0);
+    modal('✆ Nicht erreicht',
+      '<label class="flex small" style="margin-bottom:12px"><input type="checkbox" id="oc_mb" style="width:auto"> Auf Mailbox gesprochen</label>'+
+      noteField+
+      '<div class="sect-h">Nächster Versuch</div>'+wvChips('oc_at')+
+      '<label class="f"><span>Zeitpunkt</span><input type="datetime-local" id="oc_at" value="'+toLocalInput(def)+'"></label>'+
+      '<label class="f"><span>Merker</span><input type="text" id="oc_next" placeholder="z.B. vormittags probieren"></label>',
+      [['Zurück','closeModal()',''],['Speichern &amp; weiter','confirmSimple(\'nicht_erreicht\',true)','primary']]);
+    return;
+  }
+  if(kind==='gatekeeper'){
+    modal('⛨ Zentrale blockt',
+      '<div class="fgrid"><label class="f"><span>Name des Entscheiders</span><input type="text" id="oc_ap" placeholder="Vorname Nachname"></label>'+
+      '<label class="f"><span>Position / Durchwahl</span><input type="text" id="oc_apinfo" placeholder="z.B. GF, DW -12"></label></div>'+
+      '<label class="f"><span>Mit wem gesprochen? (Zentrale)</span><input type="text" id="oc_person" value="Zentrale"></label>'+
+      noteField+
+      '<div class="sect-h">Nächster Versuch</div>'+wvChips('oc_at',2)+
+      '<label class="f"><span>Zeitpunkt</span><input type="datetime-local" id="oc_at" value="'+toLocalInput(atHour(new Date(Date.now()+864e5),8,15))+'"></label>'+
+      '<label class="f"><span>Merker</span><input type="text" id="oc_next" placeholder="z.B. vor 8:30 oder nach 17:00 direkt durchstellen lassen"></label>',
+      [['Zurück','closeModal()',''],['Speichern','confirmSimple(\'gatekeeper\',true)','primary']]);
+    return;
+  }
+  if(kind==='kein_interesse'){
+    const reasons=['Kein Bedarf','Agentur vorhanden','Macht alles intern','Kein Budget','Zu teuer','Schlechte Erfahrung','Kein Interesse an Kaltakquise','Timing passt nicht'];
+    modal('✖ Kein Interesse',
+      personField+
+      '<label class="f"><span>Grund</span><div class="chiprow" style="margin-bottom:8px">'+
+        reasons.map(r=>'<button type="button" class="chip" onclick="setReason(this,\''+r+'\')">'+r+'</button>').join('')+'</div>'+
+        '<input type="text" id="oc_reason" placeholder="Grund in eigenen Worten"></label>'+
+      noteField+
+      '<div class="sect-h">Wiedervorlage – wann nochmal versuchen?</div>'+wvChips('oc_at',9)+
+      '<label class="f"><span>Zeitpunkt</span><input type="datetime-local" id="oc_at" value="'+toLocalInput(atHour(addMonths(new Date(),3),9,0))+'"></label>'+
+      '<label class="flex small"><input type="checkbox" id="oc_nowv" style="width:auto"> Keine Wiedervorlage – dauerhaft schließen</label>',
+      [['Zurück','closeModal()',''],['Speichern','confirmSimple(\'kein_interesse\',true)','bad']]);
+    return;
+  }
+  if(kind==='kein_fit'){
+    modal('⊘ Kein Fit / Ausschluss',
+      personField+
+      '<label class="f"><span>Grund</span><input type="text" id="oc_reason" placeholder="z.B. zu klein, falsche Branche, insolvent"></label>'+
+      noteField+'<div class="small mut">Der Lead wird dauerhaft geschlossen und erscheint nicht mehr in der Call-Liste.</div>',
+      [['Zurück','closeModal()',''],['Ausschließen','confirmSimple(\'kein_fit\',false)','bad']]);
+    return;
+  }
+  if(kind==='falsche_nummer'){
+    modal('? Falsche Nummer',
+      '<label class="f"><span>Korrigierte Telefonnummer (optional)</span><input type="tel" id="oc_newphone" placeholder="+49 …"></label>'+
+      noteField+'<div class="small mut">Ohne neue Nummer geht der Lead in den Status „Recherche“.</div>',
+      [['Zurück','closeModal()',''],['Speichern','confirmSimple(\'falsche_nummer\',false)','']]);
+  }
+}
+function setReason(btn,r){
+  btn.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('oc_reason').value=r;
+}
+function logCall(l,outcome,note,person){
+  const at=new Date(call.startedAt||Date.now()).toISOString();
+  l.calls.push({id:uid(),at:at,dur:elapsedSec(),outcome:outcome,note:note||'',person:person||''});
+  l.attempts=l.calls.length; l.lastCallAt=at; l.updatedAt=new Date().toISOString();
+  call.logged=true;
+}
+function confirmTermin(){
+  const l=state.leads.find(x=>x.id===call.leadId); if(!l)return;
+  const at=val('tm_at'); if(!at){toast('Bitte Datum und Uhrzeit wählen','warn');return;}
+  const note=document.getElementById('tm_note').value.trim();
+  logCall(l,'termin',note,val('oc_person'));
+  l.termin={at:new Date(at).toISOString(),dauer:parseInt(val('tm_dauer'),10)||30,typ:val('tm_typ'),ort:val('tm_ort'),note:note};
+  l.status='termin'; l.nextAt=l.termin.at; l.nextNote='Termin '+val('tm_typ')+(note?' – '+note:'');
+  const ics=document.getElementById('tm_ics').checked;
+  closeModal(); toast('Termin am '+fmtDT(l.termin.at)+' gespeichert','ok');
+  saveQuiet(); if(ics)exportICS(l.id);
+  afterCall(l);
+}
+function confirmSimple(kind,useWV){
+  const l=state.leads.find(x=>x.id===call.leadId); if(!l)return;
+  const g=id=>{const e=document.getElementById(id);return e?e.value.trim():'';};
+  const chk=id=>{const e=document.getElementById(id);return e?e.checked:false;};
+  const note0=g('oc_note');
+  let note=note0;
+  if(kind==='nicht_erreicht'&&chk('oc_mb'))note=(note?note+' · ':'')+'Mailbox besprochen';
+  const reason=g('oc_reason');
+  if(reason)note=(note?note+' · ':'')+'Grund: '+reason;
+  const ap=g('oc_ap'), apinfo=g('oc_apinfo');
+  if(ap)note=(note?note+' · ':'')+'Ansprechpartner: '+ap+(apinfo?' ('+apinfo+')':'');
+  logCall(l,kind,note,g('oc_person'));
+
+  if(ap){
+    const parts=ap.split(/\s+/);
+    if(!l.nachname){l.vorname=parts.slice(0,-1).join(' ');l.nachname=parts[parts.length-1];}
+    else l.notizen=(l.notizen?l.notizen+'\n':'')+'Weiterer Ansprechpartner: '+ap+(apinfo?' ('+apinfo+')':'');
+    if(apinfo&&!l.position)l.position=apinfo;
+  }
+  if(kind==='falsche_nummer'){
+    const np=g('oc_newphone');
+    if(np){l.telefon2=l.telefon2||l.telefon;l.telefon=np;l.status='neu';l.nextAt=new Date().toISOString();l.nextNote='Nummer korrigiert – erneut anrufen';}
+    else{l.status='recherche';l.nextAt=null;l.nextNote='Telefonnummer recherchieren';}
+  }else if(kind==='kein_fit'){
+    l.status='kein_fit'; l.nextAt=null; l.nextNote=''; l.lostReason=reason||note0;
+  }else if(kind==='kein_interesse'){
+    l.status='kein_interesse'; l.lostReason=reason||note0;
+    if(chk('oc_nowv')){l.nextAt=null;l.nextNote='';}
+    else{const at=g('oc_at');l.nextAt=at?new Date(at).toISOString():null;l.nextNote=g('oc_next')||('Vor '+(reason||'Absage')+' – neuer Anlauf');}
+  }else{
+    l.status=OUTCOMES[kind].status;
+    if(useWV){const at=g('oc_at');l.nextAt=at?new Date(at).toISOString():null;}
+    l.nextNote=g('oc_next')||note0||'';
+    if(kind==='gatekeeper'&&ap)l.nextNote=(l.nextNote?l.nextNote+' · ':'')+'Nach '+ap+' fragen';
+  }
+  l.updatedAt=new Date().toISOString();
+  closeModal();
+  toast(OUTCOMES[kind].label+' gespeichert'+(l.nextAt?' · Wiedervorlage '+fmtDT(l.nextAt):''),'ok');
+  saveQuiet();
+  afterCall(l);
+}
+function afterCall(l){
+  clearInterval(call.tick);
+  document.getElementById('callscreen').classList.remove('open');
+  call.leadId=null;
+  render();
+  const q=callQueue();
+  if(q.length){
+    const n=q[0];
+    modal('Weiter geht\'s',
+      '<div style="text-align:center;padding:6px 0 2px">'+
+      '<div class="small mut" style="margin-bottom:10px">Nächster Lead in der Warteschlange</div>'+
+      '<div style="font-size:20px;font-weight:700">'+esc(n.unternehmen||'(ohne Firma)')+'</div>'+
+      '<div class="mut">'+esc(displayName(n))+' · '+esc(phoneOf(n)||'keine Nummer')+'</div>'+
+      (n.trigger?'<div style="margin-top:10px"><span class="trigger-chip">⚡ '+esc(n.trigger)+'</span></div>':'')+
+      '<div class="small mut" style="margin-top:12px">Noch '+q.length+' Leads offen</div></div>',
+      [['Pause machen','closeModal()',''],['☎ Nächsten anrufen','closeModal();startCall(\''+n.id+'\')','ok']]);
+  }
+}
+
+/* ================= Tastatur & Init ================= */
+document.addEventListener('keydown',e=>{
+  const inField=/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+  const callOpen=document.getElementById('callscreen').classList.contains('open');
+  const modalOpen=document.getElementById('overlay').classList.contains('open');
+  if(e.key==='Escape'){
+    if(modalOpen){closeModal();return;}
+    if(callOpen){closeCall(true);return;}
+  }
+  if(inField)return;
+  if(callOpen&&!modalOpen){
+    if(/^[1-8]$/.test(e.key)){oc(OC_ORDER[parseInt(e.key,10)-1]);e.preventDefault();return;}
+    if(e.key===' '){toggleTimer();e.preventDefault();return;}
+    return;
+  }
+  if(modalOpen)return;
+  if(e.key==='/'){document.getElementById('globalSearch').focus();e.preventDefault();}
+  else if(e.key==='n'||e.key==='N'){openLead(null);}
+  else if(e.key==='c'||e.key==='C'){startNextCall();}
+});
+document.getElementById('globalSearch').addEventListener('input',function(){
+  filters.q=this.value;
+  if(route!=='kontakte'){go('kontakte');setTimeout(()=>{const s=document.querySelector('#listWrap');if(s)renderList();},30);}
+  else renderList();
+});
+document.getElementById('globalSearch').addEventListener('keydown',function(e){
+  if(e.key==='Escape'){this.value='';filters.q='';this.blur();renderList();}
+});
+
+/* ---------- Demo-Daten beim ersten Start ---------- */
+function seedDemo(){
+  const demo=[
+    {unternehmen:'Meridian Bau GmbH',branche:'Bauunternehmen',standort:'Düsseldorf',website:'meridian-bau.de',
+     telefon:'0211 5566770',vorname:'Thomas',nachname:'Berger',position:'Geschäftsführer',mobil:'0171 2233445',
+     entscheider:'Entscheider',trigger:'Neue Stellenanzeigen',angebot:'Recruiting-Kampagne',kampagne:'Bau NRW Q3',
+     quelle:'Leadinfo',painpoint:'Findet keine Poliere',potenzial:'ca. 12.000 €',status:'neu'},
+    {unternehmen:'Vollmer Haustechnik',branche:'SHK / Handwerk',standort:'Essen',website:'vollmer-haustechnik.de',
+     telefon:'0201 445566',vorname:'Sabine',nachname:'Vollmer',position:'Inhaberin',
+     trigger:'Schwache Google-Sichtbarkeit',angebot:'SEO-Potenzialanalyse',kampagne:'Bau NRW Q3',quelle:'Recherche',
+     status:'nicht_erreicht',nextAt:new Date(Date.now()-864e5).toISOString(),nextNote:'Vormittags probieren, Zentrale sagt ab 8 Uhr im Büro'},
+    {unternehmen:'Nordlicht Immobilien AG',branche:'Immobilien',standort:'Hamburg',website:'nordlicht-immo.de',
+     telefon:'040 998877',vorname:'Kai',nachname:'Petersen',position:'Leiter Marketing',
+     trigger:'Website-Relaunch',angebot:'Conversion Check',kampagne:'Immobilien DACH',quelle:'LinkedIn',
+     status:'wiedervorlage',nextAt:new Date(Date.now()+2*36e5).toISOString(),nextNote:'Nach dem Relaunch im September nochmal – Budget wird dann geplant'}
+  ];
+  demo.forEach(d=>state.leads.push(normLead(Object.assign({id:uid(),demo:true,createdAt:new Date().toISOString()},d))));
+}
+
+/* ---------- Start ---------- */
+load();
+applyTheme();
+if(!state.leads.length&&!localStorage.getItem(KEY+'_seeded')){
+  seedDemo(); localStorage.setItem(KEY+'_seeded','1'); saveQuiet();
+}
+route=(location.hash||'#heute').slice(1)||'heute';
+render();
+window.addEventListener('beforeunload',()=>saveQuiet());
+</script>
+</body></html>
