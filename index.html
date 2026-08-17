@@ -89,9 +89,18 @@ html[data-theme="dark"] .nav a.on{color:#cfe0ff}
 }
 .topbar h1{font-size:17px;font-weight:700;letter-spacing:-.3px}
 .topbar .sub{color:var(--txt3);font-size:12.5px;margin-top:1px}
-.search{
-  margin-left:auto;position:relative;
+.branchbox{margin-left:auto;display:flex;align-items:center;gap:7px}
+.branchbox select{
+  width:auto;min-width:172px;padding:8px 11px;border-radius:10px;background:var(--surface2);
+  border:1px solid var(--line);font-size:13.5px;font-weight:600
 }
+.branchbox.on select{border-color:var(--accent);background:var(--accent-soft);color:var(--accent2)}
+.branchbox .clr{
+  width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--txt3);
+  background:var(--surface2);border:1px solid var(--line);font-size:15px
+}
+.branchbox .clr:hover{background:var(--bad-soft);color:var(--bad);border-color:var(--bad)}
+.search{position:relative}
 .search input{
   width:270px;padding:8px 12px 8px 32px;border-radius:10px;background:var(--surface2);
   border:1px solid var(--line);outline:none;transition:var(--t);font-size:13.5px
@@ -405,6 +414,7 @@ kbd{
         <h1 id="pageTitle">Heute</h1>
         <div class="sub" id="pageSub"></div>
       </div>
+      <div class="branchbox" id="branchBox"></div>
       <div class="search">
         <span class="si">⌕</span>
         <input type="text" id="globalSearch" placeholder="Firma, Name, Telefon …  (/)" autocomplete="off">
@@ -450,7 +460,7 @@ kbd{
    Single-File App · Daten bleiben lokal im Browser (localStorage)
    ================================================================ */
 const KEY='bbc_akquise_cockpit_v2';
-const APP_VERSION='2.0.0';
+const APP_VERSION='2.1.0';
 
 /* ---------- Status-Definitionen ---------- */
 const STATUS={
@@ -511,7 +521,8 @@ const DEFAULT_SETTINGS={
   calendly:'https://calendly.com/buildbuddyconsulting/analyse-call',
   terminDauer:30, notReachedDays:2, maxAttempts:6,
   zielCalls:30, zielGespraeche:8, zielTermine:2,
-  arbeitsbeginn:'09:00'
+  arbeitsbeginn:'09:00',
+  pakete:[]
 };
 
 /* ---------- State ---------- */
@@ -519,7 +530,25 @@ let state=null, selected=new Set(), route='heute';
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
 function blank(){
   return {version:2, leads:[], scripts:JSON.parse(JSON.stringify(DEFAULT_SCRIPTS)),
-    settings:Object.assign({},DEFAULT_SETTINGS), theme:'dark', createdAt:new Date().toISOString()};
+    settings:Object.assign({},DEFAULT_SETTINGS), theme:'dark', focusBranche:'', createdAt:new Date().toISOString()};
+}
+/* ---------- Branchen-Fokus ---------- */
+function branchList(){
+  const m={};
+  state.leads.forEach(l=>{const b=(l.branche||'').trim();if(b)m[b]=(m[b]||0)+1;});
+  return Object.keys(m).sort((a,b)=>a.localeCompare(b,'de')).map(b=>({b:b,n:m[b]}));
+}
+function inFocus(l){
+  const f=state.focusBranche;
+  if(!f)return true;
+  if(f==='__leer__')return !String(l.branche||'').trim();
+  return String(l.branche||'').trim().toLowerCase()===f.toLowerCase();
+}
+function setBranche(v){state.focusBranche=v||'';saveQuiet();render();}
+function paketFor(l){
+  const b=String(l.branche||'').trim().toLowerCase();
+  if(!b)return null;
+  return (state.settings.pakete||[]).find(p=>String(p.branche||'').trim().toLowerCase()===b)||null;
 }
 function normLead(l){
   l.id=l.id||uid();
@@ -538,6 +567,8 @@ function load(){
   try{const d=JSON.parse(localStorage.getItem(KEY));
     if(d&&Array.isArray(d.leads)){
       state=d; state.settings=Object.assign({},DEFAULT_SETTINGS,d.settings||{});
+      if(!Array.isArray(state.settings.pakete))state.settings.pakete=[];
+      state.focusBranche=d.focusBranche||'';
       state.scripts=(Array.isArray(d.scripts)&&d.scripts.length)?d.scripts:JSON.parse(JSON.stringify(DEFAULT_SCRIPTS));
       state.leads.forEach(normLead); return;
     }}catch(e){}
@@ -601,29 +632,29 @@ function atHour(date,h,mi){const d=new Date(date);d.setHours(h,mi||0,0,0);return
 /* ---------- Selektoren ---------- */
 function dueLeads(){
   const now=new Date();
-  return state.leads.filter(l=>l.nextAt&&new Date(l.nextAt)<=endOfDay(now)&&!CLOSED.includes(l.status)&&l.status!=='termin')
+  return state.leads.filter(l=>inFocus(l)&&l.nextAt&&new Date(l.nextAt)<=endOfDay(now)&&!CLOSED.includes(l.status)&&l.status!=='termin')
     .sort((a,b)=>new Date(a.nextAt)-new Date(b.nextAt));
 }
 function overdueLeads(){
   const now=new Date();
-  return state.leads.filter(l=>l.nextAt&&new Date(l.nextAt)<startOfDay(now)&&!CLOSED.includes(l.status)&&l.status!=='termin');
+  return state.leads.filter(l=>inFocus(l)&&l.nextAt&&new Date(l.nextAt)<startOfDay(now)&&!CLOSED.includes(l.status)&&l.status!=='termin');
 }
 function freshLeads(){
-  return state.leads.filter(l=>(l.status==='neu'||l.status==='recherche')&&!l.nextAt&&phoneOf(l));
+  return state.leads.filter(l=>inFocus(l)&&(l.status==='neu'||l.status==='recherche')&&!l.nextAt&&phoneOf(l));
 }
 function upcomingTermine(all){
   const now=new Date();
-  return state.leads.filter(l=>l.termin&&l.termin.at&&(all||new Date(l.termin.at)>=startOfDay(now)))
+  return state.leads.filter(l=>inFocus(l)&&l.termin&&l.termin.at&&(all||new Date(l.termin.at)>=startOfDay(now)))
     .sort((a,b)=>new Date(a.termin.at)-new Date(b.termin.at));
 }
 function terminHeute(){
   const t=startOfDay(new Date()),e=endOfDay(new Date());
-  return state.leads.filter(l=>l.termin&&l.termin.at&&new Date(l.termin.at)>=t&&new Date(l.termin.at)<=e)
+  return state.leads.filter(l=>inFocus(l)&&l.termin&&l.termin.at&&new Date(l.termin.at)>=t&&new Date(l.termin.at)<=e)
     .sort((a,b)=>new Date(a.termin.at)-new Date(b.termin.at));
 }
 function allCalls(){
   const out=[];
-  state.leads.forEach(l=>l.calls.forEach(c=>out.push(Object.assign({lead:l},c))));
+  state.leads.forEach(l=>{if(inFocus(l))l.calls.forEach(c=>out.push(Object.assign({lead:l},c)));});
   return out.sort((a,b)=>new Date(b.at)-new Date(a.at));
 }
 function callsBetween(from,to){return allCalls().filter(c=>{const d=new Date(c.at);return d>=from&&d<=to;});}
@@ -660,9 +691,10 @@ function render(){
   if(!TITLES[route])route='heute';
   const t=TITLES[route];
   document.getElementById('pageTitle').textContent=t[0];
-  document.getElementById('pageSub').textContent=t[1];
+  document.getElementById('pageSub').innerHTML=esc(t[1])+(state.focusBranche?' · <b style="color:var(--accent2)">Branche: '+esc(focusLabel())+'</b>':'');
   document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.v===route));
   updateCounts();
+  renderBranchBox();
   const el=document.getElementById('viewInner');
   const fn=({heute:vHeute,pipeline:vPipeline,termine:vTermine,wiedervorlage:vWV,kontakte:vKontakte,
     anrufe:vAnrufe,'kein-interesse':vKI,statistik:vStat,leitfaden:vLeitfaden,daten:vDaten,einstellungen:vSettings})[route];
@@ -670,12 +702,29 @@ function render(){
   if(route==='pipeline')wireKanban();
   if(route==='daten')wireDropzone();
 }
+function renderBranchBox(){
+  const box=document.getElementById('branchBox');
+  const list=branchList();
+  const f=state.focusBranche;
+  const ohne=state.leads.filter(l=>!String(l.branche||'').trim()).length;
+  box.classList.toggle('on',!!f);
+  box.innerHTML='<select id="brancheSel" onchange="setBranche(this.value)" title="Branchen-Fokus">'+
+    '<option value="">Alle Branchen ('+state.leads.length+')</option>'+
+    list.map(x=>'<option value="'+esc(x.b)+'"'+(f===x.b?' selected':'')+'>'+esc(x.b)+' ('+x.n+')</option>').join('')+
+    (ohne?'<option value="__leer__"'+(f==='__leer__'?' selected':'')+'>Ohne Branche ('+ohne+')</option>':'')+
+    '</select>'+(f?'<button class="clr" onclick="setBranche(\'\')" title="Filter aufheben">×</button>':'');
+}
+function focusLabel(){
+  const f=state.focusBranche;
+  return !f?'':(f==='__leer__'?'Ohne Branche':f);
+}
 function updateCounts(){
-  const q=callQueue().length, wv=state.leads.filter(l=>l.status==='wiedervorlage'&&l.nextAt).length;
-  const tm=upcomingTermine().length, ki=state.leads.filter(l=>CLOSED.includes(l.status)).length;
+  const q=callQueue().length, wv=state.leads.filter(l=>inFocus(l)&&l.status==='wiedervorlage'&&l.nextAt).length;
+  const tm=upcomingTermine().length, ki=state.leads.filter(l=>inFocus(l)&&CLOSED.includes(l.status)).length;
+  const nAll=state.leads.filter(inFocus).length;
   const set=(id,n,hot)=>{const e=document.getElementById(id);if(!e)return;e.textContent=n;e.classList.toggle('hot',!!hot);e.style.display=n?'':'none';};
   set('c-heute',q,overdueLeads().length>0);
-  set('c-termine',tm); set('c-wv',wv); set('c-all',state.leads.length);
+  set('c-termine',tm); set('c-wv',wv); set('c-all',nAll);
   set('c-calls',allCalls().length); set('c-ki',ki);
 }
 
@@ -688,7 +737,7 @@ function vHeute(){
   const q=callQueue(), ov=overdueLeads(), th=terminHeute();
   const pct=v=>Math.min(100,Math.round(v*100));
 
-  let h='';
+  let h=brancheChips();
   if(state.leads.some(l=>l.demo)){
     h+='<div class="card" style="margin-bottom:16px;border-color:var(--warn)"><div class="card-b wrapflex" style="padding:12px 16px">'+
       '<span>👋 Zum Ausprobieren sind 3 Beispiel-Leads enthalten.</span>'+
@@ -748,6 +797,21 @@ function vHeute(){
   h+='</div>';
   return h;
 }
+function brancheChips(){
+  const list=branchList();
+  if(list.length<2)return '';
+  const f=state.focusBranche;
+  const ohne=state.leads.filter(l=>!String(l.branche||'').trim()).length;
+  const openOf=arr=>arr.length;
+  return '<div class="card" style="margin-bottom:16px"><div class="card-b" style="padding:12px 15px">'+
+    '<div class="wrapflex" style="gap:8px">'+
+    '<span class="small mut b" style="margin-right:2px">Branche:</span>'+
+    '<button class="chip'+(!f?' on':'')+'" onclick="setBranche(\'\')">Alle</button>'+
+    list.map(x=>'<button class="chip'+(f===x.b?' on':'')+'" onclick="setBranche(\''+esc(x.b).replace(/'/g,"\\'")+'\')">'+esc(x.b)+
+      ' <span class="mut" style="font-weight:600">'+x.n+'</span></button>').join('')+
+    (ohne?'<button class="chip'+(f==='__leer__'?' on':'')+'" onclick="setBranche(\'__leer__\')">Ohne Branche <span class="mut">'+ohne+'</span></button>':'')+
+    '</div></div></div>';
+}
 function removeDemo(){
   state.leads=state.leads.filter(l=>!l.demo);
   toast('Beispieldaten entfernt','ok'); save();
@@ -766,7 +830,7 @@ function vPipeline(){
     '<span class="small mut">Karten per Drag &amp; Drop verschieben</span></div>';
   h+='<div class="kan">';
   PIPE_COLS.forEach(st=>{
-    const ls=state.leads.filter(l=>l.status===st)
+    const ls=state.leads.filter(l=>inFocus(l)&&l.status===st)
       .sort((a,b)=>(a.nextAt?new Date(a.nextAt):9e15)-(b.nextAt?new Date(b.nextAt):9e15));
     h+='<div class="kcol" data-st="'+st+'"><div class="kcol-h"><span class="dot" style="background:'+STATUS[st].color+'"></span>'+
       '<b>'+STATUS[st].label+'</b><span class="n">'+ls.length+'</span></div><div class="kcol-b" data-st="'+st+'">';
@@ -845,9 +909,9 @@ function terminRow(l){
 /* ================= WIEDERVORLAGE ================= */
 function vWV(){
   const now=new Date();
-  const ls=state.leads.filter(l=>l.nextAt&&!CLOSED.includes(l.status)&&l.status!=='termin')
+  const ls=state.leads.filter(l=>inFocus(l)&&l.nextAt&&!CLOSED.includes(l.status)&&l.status!=='termin')
     .sort((a,b)=>new Date(a.nextAt)-new Date(b.nextAt));
-  const closedWV=state.leads.filter(l=>l.nextAt&&CLOSED.includes(l.status))
+  const closedWV=state.leads.filter(l=>inFocus(l)&&l.nextAt&&CLOSED.includes(l.status))
     .sort((a,b)=>new Date(a.nextAt)-new Date(b.nextAt));
   const buckets=[
     ['Überfällig',ls.filter(l=>new Date(l.nextAt)<startOfDay(now)),'bad'],
@@ -889,7 +953,7 @@ function leadMatches(l,q){
     l.email,l.emailAP,l.kampagne,l.trigger,l.angebot,l.notizen,l.position].some(v=>String(v||'').toLowerCase().includes(q));
 }
 function filteredLeads(){
-  let ls=state.leads.filter(l=>leadMatches(l,filters.q));
+  let ls=state.leads.filter(l=>inFocus(l)&&leadMatches(l,filters.q));
   if(filters.status)ls=ls.filter(l=>l.status===filters.status);
   if(filters.kampagne)ls=ls.filter(l=>l.kampagne===filters.kampagne);
   const s=filters.sort;
@@ -910,6 +974,9 @@ function vKontakte(){
     '<input type="text" style="max-width:250px" placeholder="Suchen …" value="'+esc(filters.q)+'" oninput="filters.q=this.value;renderList()">'+
     '<select style="max-width:190px" onchange="filters.status=this.value;renderList()"><option value="">Alle Status</option>'+
       Object.keys(STATUS).map(k=>'<option value="'+k+'"'+(filters.status===k?' selected':'')+'>'+STATUS[k].label+'</option>').join('')+'</select>'+
+    '<select style="max-width:190px" onchange="setBranche(this.value)"><option value="">Alle Branchen</option>'+
+      branchList().map(x=>'<option value="'+esc(x.b)+'"'+(state.focusBranche===x.b?' selected':'')+'>'+esc(x.b)+' ('+x.n+')</option>').join('')+
+      '</select>'+
     '<select style="max-width:190px" onchange="filters.kampagne=this.value;renderList()"><option value="">Alle Kampagnen</option>'+
       kamps.map(k=>'<option'+(filters.kampagne===k?' selected':'')+'>'+esc(k)+'</option>').join('')+'</select>'+
     '<select style="max-width:170px" onchange="filters.sort=this.value;renderList()">'+
@@ -1017,12 +1084,12 @@ function vAnrufe(){
 
 /* ================= KEIN INTERESSE ================= */
 function vKI(){
-  const ls=state.leads.filter(l=>CLOSED.includes(l.status))
+  const ls=state.leads.filter(l=>inFocus(l)&&CLOSED.includes(l.status))
     .sort((a,b)=>new Date(b.updatedAt||b.createdAt)-new Date(a.updatedAt||a.createdAt));
   let h='<div class="grid g3" style="margin-bottom:18px">'+
-    kpi('Kein Interesse',state.leads.filter(l=>l.status==='kein_interesse').length,'mit Wiedervorlage reaktivierbar','bad')+
-    kpi('Kein Fit',state.leads.filter(l=>l.status==='kein_fit').length,'dauerhaft ausgeschlossen','')+
-    kpi('Verloren',state.leads.filter(l=>l.status==='verloren').length,'nach Angebot/Verhandlung','bad')+'</div>';
+    kpi('Kein Interesse',state.leads.filter(l=>inFocus(l)&&l.status==='kein_interesse').length,'mit Wiedervorlage reaktivierbar','bad')+
+    kpi('Kein Fit',state.leads.filter(l=>inFocus(l)&&l.status==='kein_fit').length,'dauerhaft ausgeschlossen','')+
+    kpi('Verloren',state.leads.filter(l=>inFocus(l)&&l.status==='verloren').length,'nach Angebot/Verhandlung','bad')+'</div>';
   if(!ls.length)return h+'<div class="card"><div class="empty"><div class="ic">⊘</div><h4>Noch nichts geschlossen</h4></div></div>';
   h+='<div class="card"><div class="t-wrap"><table><thead><tr><th>Unternehmen</th><th>Ansprechpartner</th><th>Status</th>'+
     '<th>Grund</th><th>Wiedervorlage</th><th class="right">Calls</th><th></th></tr></thead><tbody>';
@@ -1106,29 +1173,50 @@ function vStat(){
 
   /* Pipeline-Funnel + Kampagnen */
   h+='<div class="grid g2">';
-  const funnel=[['Leads gesamt',state.leads.length],['Mind. 1 Anruf',state.leads.filter(l=>l.calls.length).length],
-    ['Gespräch geführt',state.leads.filter(l=>l.calls.some(c=>['termin','interesse','kein_interesse','rueckruf'].includes(c.outcome))).length],
-    ['Termin vereinbart',state.leads.filter(l=>l.termin&&l.termin.at).length],
-    ['Angebot',state.leads.filter(l=>['angebot','verhandlung','gewonnen'].includes(l.status)).length],
-    ['Gewonnen',state.leads.filter(l=>l.status==='gewonnen').length]];
+  const F=state.leads.filter(inFocus);
+  const funnel=[['Leads gesamt',F.length],['Mind. 1 Anruf',F.filter(l=>l.calls.length).length],
+    ['Gespräch geführt',F.filter(l=>l.calls.some(c=>['termin','interesse','kein_interesse','rueckruf'].includes(c.outcome))).length],
+    ['Termin vereinbart',F.filter(l=>l.termin&&l.termin.at).length],
+    ['Angebot',F.filter(l=>['angebot','verhandlung','gewonnen'].includes(l.status)).length],
+    ['Gewonnen',F.filter(l=>l.status==='gewonnen').length]];
   const maxF=Math.max(1,funnel[0][1]);
   h+='<div class="card"><div class="card-h"><h3>Funnel</h3></div><div class="card-b"><div class="bars">'+
     funnel.map((f,i)=>'<div class="barrow"><span class="mut">'+f[0]+'</span><span class="bt">'+
       '<i style="width:'+(f[1]/maxF*100)+'%;background:linear-gradient(90deg,var(--accent),var(--purple))"></i></span>'+
       '<b class="right">'+f[1]+'</b></div>').join('')+'</div>'+
-    '<div class="hr"></div><div class="small mut">Von 100 Leads werden im Schnitt '+
-    (state.leads.length?Math.round(funnel[3][1]/state.leads.length*100):0)+' zu einem Termin.</div></div></div>';
+    '<div class="hr"></div><div class="small mut">Von 100 Leads'+(state.focusBranche?' der Branche '+esc(focusLabel()):'')+' werden im Schnitt '+
+    (F.length?Math.round(funnel[3][1]/F.length*100):0)+' zu einem Termin.</div></div></div>';
 
   const kmp={};
-  state.leads.forEach(l=>{const k=l.kampagne||'(ohne Kampagne)';kmp[k]=kmp[k]||{n:0,t:0,c:0};kmp[k].n++;
+  F.forEach(l=>{const k=l.kampagne||'(ohne Kampagne)';kmp[k]=kmp[k]||{n:0,t:0,c:0};kmp[k].n++;
     if(l.termin&&l.termin.at)kmp[k].t++;kmp[k].c+=l.calls.length;});
   const kkeys=Object.keys(kmp).sort((a,b)=>kmp[b].n-kmp[a].n).slice(0,10);
+  const brn={};
+  state.leads.forEach(l=>{const k=(l.branche||'').trim()||'(ohne Branche)';brn[k]=brn[k]||{n:0,t:0,c:0,g:0};brn[k].n++;
+    if(l.termin&&l.termin.at)brn[k].t++;brn[k].c+=l.calls.length;
+    brn[k].g+=l.calls.filter(c=>['termin','interesse','kein_interesse','rueckruf'].includes(c.outcome)).length;});
+  const bkeys=Object.keys(brn).sort((a,b)=>brn[b].n-brn[a].n);
   h+='<div class="card"><div class="card-h"><h3>Kampagnen</h3></div>'+
     (kkeys.length?'<div class="t-wrap" style="max-height:none"><table><thead><tr><th>Kampagne</th><th class="right">Leads</th><th class="right">Calls</th><th class="right">Termine</th><th class="right">Quote</th></tr></thead><tbody>'+
     kkeys.map(k=>'<tr><td class="t-comp">'+esc(k)+'</td><td class="right">'+kmp[k].n+'</td><td class="right">'+kmp[k].c+'</td>'+
       '<td class="right">'+kmp[k].t+'</td><td class="right"><b>'+(kmp[k].n?Math.round(kmp[k].t/kmp[k].n*100):0)+'%</b></td></tr>').join('')+
     '</tbody></table></div>':'<div class="empty small">Noch keine Daten</div>')+'</div>';
   h+='</div>';
+  if(bkeys.length){
+    h+='<div class="card" style="margin-top:18px"><div class="card-h"><h3>Branchen – welche lohnt sich?</h3>'+
+      '<div class="spacer"></div><span class="small mut">Klick auf eine Zeile filtert das ganze Cockpit</span></div>'+
+      '<div class="t-wrap" style="max-height:none"><table><thead><tr><th>Branche</th><th class="right">Leads</th>'+
+      '<th class="right">Anrufe</th><th class="right">Gespräche</th><th class="right">Termine</th>'+
+      '<th class="right">Termin je Lead</th><th>Leistungspaket</th></tr></thead><tbody>'+
+      bkeys.map(k=>{
+        const p=(state.settings.pakete||[]).find(x=>String(x.branche||'').trim().toLowerCase()===k.toLowerCase());
+        return '<tr style="cursor:pointer" onclick="setBranche(\''+esc(k==='(ohne Branche)'?'__leer__':k).replace(/'/g,"\\'")+'\')">'+
+        '<td class="t-comp">'+esc(k)+'</td><td class="right">'+brn[k].n+'</td><td class="right">'+brn[k].c+'</td>'+
+        '<td class="right">'+brn[k].g+'</td><td class="right">'+brn[k].t+'</td>'+
+        '<td class="right"><b>'+(brn[k].n?Math.round(brn[k].t/brn[k].n*100):0)+'%</b></td>'+
+        '<td class="small">'+(p&&p.angebot?esc(p.angebot):'<span class="mut">–</span>')+'</td></tr>';
+      }).join('')+'</tbody></table></div></div>';
+  }
   return h;
 }
 
@@ -1448,6 +1536,15 @@ function vSettings(){
     f('notReachedDays','Wiedervorlage bei „nicht erreicht“ (Tage)',s.notReachedDays,'number')+
   '</div>'+f('maxAttempts','Max. Anrufversuche bevor Warnung',s.maxAttempts,'number')+
   '</div></div>'+
+  '</div>'+
+  '<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Leistungspakete je Branche</h3>'+
+    '<div class="spacer"></div><button class="btn sm" onclick="addPaket()">＋ Branche</button></div><div class="card-b">'+
+    '<p class="small mut" style="margin-bottom:14px">Hinterlege je Branche dein Standard-Angebot. Es wird im Anruf-Fenster angezeigt und kann per Klick auf alle Leads der Branche übertragen werden.</p>'+
+    '<datalist id="brnList">'+branchList().map(x=>'<option>'+esc(x.b)+'</option>').join('')+'</datalist>'+
+    '<datalist id="angList2">'+ANGEBOTE.map(x=>'<option>'+esc(x)+'</option>').join('')+'</datalist>'+
+    '<div id="paketRows">'+paketRows()+'</div>'+
+  '</div></div>'+
+  '<div class="grid g2">'+
   '<div class="card"><div class="card-h"><h3>Darstellung</h3></div><div class="card-b">'+
     '<div class="wrapflex"><button class="btn" onclick="toggleTheme()">◐ Zwischen Hell und Dunkel wechseln</button></div>'+
     '<div class="hr"></div><div class="small mut">Tastenkürzel:<br>'+
@@ -1462,12 +1559,53 @@ function vSettings(){
   '</div></div>'+
   '</div><div style="margin-top:16px"><button class="btn primary lg" onclick="saveSettings()">Einstellungen speichern</button></div>';
 }
+function paketRows(){
+  const ps=state.settings.pakete||[];
+  if(!ps.length)return '<div class="small mut">Noch keine Branche hinterlegt – auf „＋ Branche“ klicken.</div>';
+  return ps.map((p,i)=>
+    '<div class="paketrow" style="display:grid;grid-template-columns:1fr 1fr 1fr auto auto;gap:8px;align-items:center;margin-bottom:8px">'+
+    '<input type="text" id="pk_b_'+i+'" list="brnList" value="'+esc(p.branche||'')+'" placeholder="Branche">'+
+    '<input type="text" id="pk_a_'+i+'" list="angList2" value="'+esc(p.angebot||'')+'" placeholder="Leistungspaket / Angebot">'+
+    '<input type="text" id="pk_n_'+i+'" value="'+esc(p.notiz||'')+'" placeholder="Türöffner / Argument">'+
+    '<button class="btn sm" onclick="applyPaket('+i+')" title="Angebot auf alle Leads dieser Branche übertragen">→ Leads</button>'+
+    '<button class="btn sm ghost" onclick="delPaket('+i+')" title="Zeile entfernen">✕</button></div>').join('');
+}
+function collectPakete(){
+  const ps=[];
+  (state.settings.pakete||[]).forEach((_,i)=>{
+    const b=document.getElementById('pk_b_'+i), a=document.getElementById('pk_a_'+i), n=document.getElementById('pk_n_'+i);
+    if(!b)return;
+    ps.push({branche:b.value.trim(),angebot:a?a.value.trim():'',notiz:n?n.value.trim():''});
+  });
+  return ps.filter(p=>p.branche);
+}
+function addPaket(){
+  state.settings.pakete=collectPakete();
+  state.settings.pakete.push({branche:state.focusBranche&&state.focusBranche!=='__leer__'?state.focusBranche:'',angebot:'',notiz:''});
+  saveQuiet(); render();
+}
+function delPaket(i){
+  const ps=collectPakete(); ps.splice(i,1); state.settings.pakete=ps; saveQuiet(); render();
+}
+function applyPaket(i){
+  state.settings.pakete=collectPakete();
+  const p=state.settings.pakete[i];
+  if(!p||!p.branche||!p.angebot){toast('Bitte Branche und Angebot ausfüllen','warn');return;}
+  const ls=state.leads.filter(l=>String(l.branche||'').trim().toLowerCase()===p.branche.toLowerCase());
+  if(!ls.length){toast('Keine Leads mit der Branche „'+p.branche+'“','warn');return;}
+  const leer=ls.filter(l=>!l.angebot).length;
+  const alle=confirm(ls.length+' Leads in der Branche „'+p.branche+'“.\n\nOK = Angebot bei ALLEN setzen (auch bereits gefüllte überschreiben)\nAbbrechen = nur die '+leer+' Leads ohne Angebot füllen');
+  let n=0;
+  ls.forEach(l=>{if(alle||!l.angebot){l.angebot=p.angebot;n++;}});
+  toast(n+' Leads auf „'+p.angebot+'“ gesetzt','ok'); save();
+}
 function saveSettings(){
   const g=id=>{const e=document.getElementById('set_'+id);return e?e.value:'';};
   const s=state.settings;
   ['ich','firma','telefonIch','emailIch','calendly'].forEach(k=>s[k]=g(k));
   ['zielCalls','zielGespraeche','zielTermine','terminDauer','notReachedDays','maxAttempts']
     .forEach(k=>{const v=parseInt(g(k),10);if(!isNaN(v))s[k]=v;});
+  s.pakete=collectPakete();
   toast('Einstellungen gespeichert','ok');save();
 }
 function toggleTheme(){
@@ -1779,6 +1917,14 @@ function renderCall(){
         '<button class="btn sm" onclick="copyTxt(\''+esc(ph)+'\')">Kopieren</button>':'')+
     '<button class="btn sm" onclick="closeCall(false);openLead(\''+l.id+'\')">Bearbeiten</button></div></div>';
   if(l.trigger)h+='<div style="margin-bottom:14px"><span class="trigger-chip" style="font-size:14px;padding:8px 14px">⚡ '+esc(l.trigger)+'</span></div>';
+  const pk=paketFor(l);
+  if(pk&&(pk.angebot||pk.notiz)){
+    h+='<div class="script-box" style="border-color:var(--purple);margin-bottom:14px">'+
+      '<h5 style="color:var(--purple)">Leistungspaket · '+esc(l.branche)+'</h5>'+
+      (pk.angebot?'<b>'+esc(pk.angebot)+'</b>':'')+(pk.notiz?'<div style="margin-top:5px">'+esc(pk.notiz)+'</div>':'')+
+      (!l.angebot&&pk.angebot?'<div style="margin-top:9px"><button class="btn sm" onclick="useePaket(\''+l.id+'\')">Als Angebot für diesen Lead übernehmen</button></div>':'')+
+      '</div>';
+  }
   h+='<div class="card" style="margin-bottom:14px"><div class="card-b" style="padding:6px 16px">';
   const rows=[['Weitere Nummern',[l.telefon,l.telefon2,l.mobil].filter(Boolean).join(' · ')],
     ['E-Mail',l.emailAP||l.email],['Website',l.website?'<a href="'+esc(l.website.startsWith('http')?l.website:'https://'+l.website)+'" target="_blank" rel="noopener">'+esc(l.website)+'</a>':''],
@@ -1821,6 +1967,11 @@ function renderCall(){
   });
   r+='</div>';
   document.getElementById('callRight').innerHTML=r;
+}
+function useePaket(id){
+  const l=state.leads.find(x=>x.id===id); if(!l)return;
+  const pk=paketFor(l); if(!pk||!pk.angebot)return;
+  l.angebot=pk.angebot; saveQuiet(); renderCall(); toast('Angebot übernommen','ok');
 }
 function pickScript(id){call.scriptId=id;renderCall();}
 function copyTxt(t){
