@@ -89,18 +89,49 @@ html[data-theme="dark"] .nav a.on{color:#cfe0ff}
 }
 .topbar h1{font-size:17px;font-weight:700;letter-spacing:-.3px}
 .topbar .sub{color:var(--txt3);font-size:12.5px;margin-top:1px}
-.branchbox{margin-left:auto;display:flex;align-items:center;gap:7px}
-.branchbox select{
-  width:auto;min-width:172px;padding:8px 11px;border-radius:10px;background:var(--surface2);
-  border:1px solid var(--line);font-size:13.5px;font-weight:600
-}
-.branchbox.on select{border-color:var(--accent);background:var(--accent-soft);color:var(--accent2)}
-.branchbox .clr{
-  width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--txt3);
-  background:var(--surface2);border:1px solid var(--line);font-size:15px
-}
-.branchbox .clr:hover{background:var(--bad-soft);color:var(--bad);border-color:var(--bad)}
+.branchbox{margin-left:auto}
 .search{position:relative}
+
+/* ---- Mehrfachauswahl-Dropdown ---- */
+.msel{position:relative;display:inline-block}
+.mselbtn{
+  display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;
+  background:var(--surface2);border:1px solid var(--line);font-size:13.5px;font-weight:620;
+  transition:var(--t);white-space:nowrap;min-width:170px
+}
+.mselbtn:hover{border-color:var(--line2);background:var(--surface3)}
+.mselbtn .car{margin-left:auto;font-size:10px;color:var(--txt3)}
+.msel.on .mselbtn{border-color:var(--accent);background:var(--accent-soft);color:var(--accent2)}
+.msel.open .mselbtn{border-color:var(--accent)}
+.mselbtn .badge{
+  background:var(--accent);color:#fff;border-radius:20px;padding:0 7px;font-size:11px;font-weight:700
+}
+.mpanel{
+  position:absolute;top:calc(100% + 6px);right:0;z-index:90;width:296px;
+  background:var(--surface);border:1px solid var(--line2);border-radius:13px;
+  box-shadow:var(--shadow);padding:9px;display:none
+}
+.msel.left .mpanel{right:auto;left:0}
+.msel.open .mpanel{display:block}
+.mhead{display:flex;gap:6px;padding:2px 2px 9px;border-bottom:1px solid var(--line);margin-bottom:7px}
+.mhead button{
+  flex:1;padding:6px;border-radius:8px;background:var(--surface2);border:1px solid var(--line);
+  font-size:12px;font-weight:640;color:var(--txt2)
+}
+.mhead button:hover{background:var(--surface3);color:var(--txt)}
+.msearch{margin-bottom:7px}
+.msearch input{padding:7px 10px;font-size:13px}
+.mlist{max-height:290px;overflow-y:auto;padding-right:2px}
+.mopt{
+  display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:8px;cursor:pointer;
+  font-size:13.5px;transition:background var(--t)
+}
+.mopt:hover{background:var(--surface2)}
+.mopt.sel{background:var(--accent-soft);color:var(--accent2);font-weight:620}
+.mopt input{width:auto;flex:0 0 auto;margin:0;accent-color:var(--accent)}
+.mopt .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mopt .n{margin-left:auto;font-size:11.5px;color:var(--txt3);font-weight:700}
+.mfoot{border-top:1px solid var(--line);margin-top:7px;padding-top:8px}
 .search input{
   width:270px;padding:8px 12px 8px 32px;border-radius:10px;background:var(--surface2);
   border:1px solid var(--line);outline:none;transition:var(--t);font-size:13.5px
@@ -460,7 +491,7 @@ kbd{
    Single-File App · Daten bleiben lokal im Browser (localStorage)
    ================================================================ */
 const KEY='bbc_akquise_cockpit_v2';
-const APP_VERSION='2.1.0';
+const APP_VERSION='2.2.0';
 
 /* ---------- Status-Definitionen ---------- */
 const STATUS={
@@ -530,21 +561,43 @@ let state=null, selected=new Set(), route='heute';
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
 function blank(){
   return {version:2, leads:[], scripts:JSON.parse(JSON.stringify(DEFAULT_SCRIPTS)),
-    settings:Object.assign({},DEFAULT_SETTINGS), theme:'dark', focusBranche:'', createdAt:new Date().toISOString()};
+    settings:Object.assign({},DEFAULT_SETTINGS), theme:'dark', focusBranchen:[], createdAt:new Date().toISOString()};
 }
-/* ---------- Branchen-Fokus ---------- */
+/* ---------- Branchen-Fokus (Mehrfachauswahl) ---------- */
+const NO_BRANCH='__leer__';
 function branchList(){
   const m={};
   state.leads.forEach(l=>{const b=(l.branche||'').trim();if(b)m[b]=(m[b]||0)+1;});
   return Object.keys(m).sort((a,b)=>a.localeCompare(b,'de')).map(b=>({b:b,n:m[b]}));
 }
+function noBranchCount(){return state.leads.filter(l=>!String(l.branche||'').trim()).length;}
+function focusSet(){return Array.isArray(state.focusBranchen)?state.focusBranchen:[];}
 function inFocus(l){
-  const f=state.focusBranche;
-  if(!f)return true;
-  if(f==='__leer__')return !String(l.branche||'').trim();
-  return String(l.branche||'').trim().toLowerCase()===f.toLowerCase();
+  const f=focusSet();
+  if(!f.length)return true;
+  const b=String(l.branche||'').trim();
+  if(!b)return f.includes(NO_BRANCH);
+  return f.some(x=>x!==NO_BRANCH&&x.toLowerCase()===b.toLowerCase());
 }
-function setBranche(v){state.focusBranche=v||'';saveQuiet();render();}
+function isBrancheOn(b){return focusSet().some(x=>x.toLowerCase()===String(b).toLowerCase());}
+function toggleBranche(b){
+  const f=focusSet().slice();
+  const i=f.findIndex(x=>x.toLowerCase()===String(b).toLowerCase());
+  if(i>=0)f.splice(i,1); else f.push(b);
+  state.focusBranchen=f; saveQuiet(); render();
+}
+function setBranchen(arr){state.focusBranchen=Array.isArray(arr)?arr:[];saveQuiet();render();}
+function setBranche(v){setBranchen(v?[v]:[]);}
+function selectAllBranchen(){
+  const all=branchList().map(x=>x.b);
+  if(noBranchCount())all.push(NO_BRANCH);
+  setBranchen(all);
+}
+function focusLabel(){
+  const f=focusSet();
+  if(!f.length)return '';
+  return f.map(x=>x===NO_BRANCH?'Ohne Branche':x).join(', ');
+}
 function paketFor(l){
   const b=String(l.branche||'').trim().toLowerCase();
   if(!b)return null;
@@ -568,7 +621,8 @@ function load(){
     if(d&&Array.isArray(d.leads)){
       state=d; state.settings=Object.assign({},DEFAULT_SETTINGS,d.settings||{});
       if(!Array.isArray(state.settings.pakete))state.settings.pakete=[];
-      state.focusBranche=d.focusBranche||'';
+      state.focusBranchen=Array.isArray(d.focusBranchen)?d.focusBranchen:(d.focusBranche?[d.focusBranche]:[]);
+      delete state.focusBranche;
       state.scripts=(Array.isArray(d.scripts)&&d.scripts.length)?d.scripts:JSON.parse(JSON.stringify(DEFAULT_SCRIPTS));
       state.leads.forEach(normLead); return;
     }}catch(e){}
@@ -691,7 +745,8 @@ function render(){
   if(!TITLES[route])route='heute';
   const t=TITLES[route];
   document.getElementById('pageTitle').textContent=t[0];
-  document.getElementById('pageSub').innerHTML=esc(t[1])+(state.focusBranche?' · <b style="color:var(--accent2)">Branche: '+esc(focusLabel())+'</b>':'');
+  const fl=focusLabel();
+  document.getElementById('pageSub').innerHTML=esc(t[1])+(fl?' · <b style="color:var(--accent2)">'+(focusSet().length>1?'Branchen: ':'Branche: ')+esc(fl)+'</b>':'');
   document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.v===route));
   updateCounts();
   renderBranchBox();
@@ -702,21 +757,47 @@ function render(){
   if(route==='pipeline')wireKanban();
   if(route==='daten')wireDropzone();
 }
-function renderBranchBox(){
-  const box=document.getElementById('branchBox');
-  const list=branchList();
-  const f=state.focusBranche;
-  const ohne=state.leads.filter(l=>!String(l.branche||'').trim()).length;
-  box.classList.toggle('on',!!f);
-  box.innerHTML='<select id="brancheSel" onchange="setBranche(this.value)" title="Branchen-Fokus">'+
-    '<option value="">Alle Branchen ('+state.leads.length+')</option>'+
-    list.map(x=>'<option value="'+esc(x.b)+'"'+(f===x.b?' selected':'')+'>'+esc(x.b)+' ('+x.n+')</option>').join('')+
-    (ohne?'<option value="__leer__"'+(f==='__leer__'?' selected':'')+'>Ohne Branche ('+ohne+')</option>':'')+
-    '</select>'+(f?'<button class="clr" onclick="setBranche(\'\')" title="Filter aufheben">×</button>':'');
+function jsq(v){return esc(String(v).replace(/\\/g,'\\\\').replace(/'/g,"\\'"));}
+let mselOpen=null, mselQuery='';
+function mselOptions(){
+  const q=mselQuery.trim().toLowerCase();
+  const list=branchList().filter(x=>!q||x.b.toLowerCase().includes(q));
+  const ohne=noBranchCount();
+  const row=(val,label,n)=>'<label class="mopt'+(isBrancheOn(val)?' sel':'')+'">'+
+    '<input type="checkbox" '+(isBrancheOn(val)?'checked':'')+' onchange="toggleBranche(\''+jsq(val)+'\')">'+
+    '<span class="nm">'+esc(label)+'</span><span class="n">'+n+'</span></label>';
+  let h=list.map(x=>row(x.b,x.b,x.n)).join('');
+  if(ohne&&(!q||'ohne branche'.includes(q)))h+=row(NO_BRANCH,'Ohne Branche',ohne);
+  if(!h)h='<div class="small mut" style="padding:10px;text-align:center">Keine Branche gefunden</div>';
+  return h;
 }
-function focusLabel(){
-  const f=state.focusBranche;
-  return !f?'':(f==='__leer__'?'Ohne Branche':f);
+function mselHTML(id,align){
+  const f=focusSet();
+  const label=!f.length?'Alle Branchen':(f.length===1?focusLabel():f.length+' Branchen');
+  const many=branchList().length>8;
+  return '<div class="msel'+(mselOpen===id?' open':'')+(f.length?' on':'')+(align==='left'?' left':'')+
+    '" id="'+id+'" onclick="event.stopPropagation()">'+
+    '<button class="mselbtn" onclick="toggleMsel(\''+id+'\')" title="Branchen filtern">'+
+      '<span style="font-size:12px">▤</span><span class="nm">'+esc(label)+'</span>'+
+      '<span class="car">▼</span></button>'+
+    '<div class="mpanel">'+
+      '<div class="mhead"><button onclick="selectAllBranchen()">Alle auswählen</button>'+
+      '<button onclick="setBranchen([])">Zurücksetzen</button></div>'+
+      (many?'<div class="msearch"><input type="text" placeholder="Branche suchen …" value="'+esc(mselQuery)+'" oninput="mselSearch(this.value,\''+id+'\')"></div>':'')+
+      '<div class="mlist">'+mselOptions()+'</div>'+
+      '<div class="mfoot"><button class="btn sm block" onclick="closeMsel()">Fertig</button></div>'+
+    '</div></div>';
+}
+function toggleMsel(id){mselOpen=(mselOpen===id?null:id);mselQuery='';render();}
+function closeMsel(){if(mselOpen){mselOpen=null;render();}}
+function mselSearch(v,id){
+  mselQuery=v;
+  const el=document.querySelector('#'+id+' .mlist');
+  if(el)el.innerHTML=mselOptions();
+}
+document.addEventListener('click',()=>{if(mselOpen)closeMsel();});
+function renderBranchBox(){
+  document.getElementById('branchBox').innerHTML=mselHTML('topBranch');
 }
 function updateCounts(){
   const q=callQueue().length, wv=state.leads.filter(l=>inFocus(l)&&l.status==='wiedervorlage'&&l.nextAt).length;
@@ -737,7 +818,7 @@ function vHeute(){
   const q=callQueue(), ov=overdueLeads(), th=terminHeute();
   const pct=v=>Math.min(100,Math.round(v*100));
 
-  let h=brancheChips();
+  let h='';
   if(state.leads.some(l=>l.demo)){
     h+='<div class="card" style="margin-bottom:16px;border-color:var(--warn)"><div class="card-b wrapflex" style="padding:12px 16px">'+
       '<span>👋 Zum Ausprobieren sind 3 Beispiel-Leads enthalten.</span>'+
@@ -765,6 +846,7 @@ function vHeute(){
 
   h+='<div class="card"><div class="card-h"><h3>☎ Call-Liste</h3>'+
      '<span class="tag">'+q.length+' Leads</span><div class="spacer"></div>'+
+     mselHTML('heuteBranch')+' '+
      (q.length?'<button class="btn ok" onclick="startNextCall()">▶ Ersten anrufen</button>':'')+
      '</div>';
   if(!q.length){
@@ -796,21 +878,6 @@ function vHeute(){
   }
   h+='</div>';
   return h;
-}
-function brancheChips(){
-  const list=branchList();
-  if(list.length<2)return '';
-  const f=state.focusBranche;
-  const ohne=state.leads.filter(l=>!String(l.branche||'').trim()).length;
-  const openOf=arr=>arr.length;
-  return '<div class="card" style="margin-bottom:16px"><div class="card-b" style="padding:12px 15px">'+
-    '<div class="wrapflex" style="gap:8px">'+
-    '<span class="small mut b" style="margin-right:2px">Branche:</span>'+
-    '<button class="chip'+(!f?' on':'')+'" onclick="setBranche(\'\')">Alle</button>'+
-    list.map(x=>'<button class="chip'+(f===x.b?' on':'')+'" onclick="setBranche(\''+esc(x.b).replace(/'/g,"\\'")+'\')">'+esc(x.b)+
-      ' <span class="mut" style="font-weight:600">'+x.n+'</span></button>').join('')+
-    (ohne?'<button class="chip'+(f==='__leer__'?' on':'')+'" onclick="setBranche(\'__leer__\')">Ohne Branche <span class="mut">'+ohne+'</span></button>':'')+
-    '</div></div></div>';
 }
 function removeDemo(){
   state.leads=state.leads.filter(l=>!l.demo);
@@ -974,9 +1041,7 @@ function vKontakte(){
     '<input type="text" style="max-width:250px" placeholder="Suchen …" value="'+esc(filters.q)+'" oninput="filters.q=this.value;renderList()">'+
     '<select style="max-width:190px" onchange="filters.status=this.value;renderList()"><option value="">Alle Status</option>'+
       Object.keys(STATUS).map(k=>'<option value="'+k+'"'+(filters.status===k?' selected':'')+'>'+STATUS[k].label+'</option>').join('')+'</select>'+
-    '<select style="max-width:190px" onchange="setBranche(this.value)"><option value="">Alle Branchen</option>'+
-      branchList().map(x=>'<option value="'+esc(x.b)+'"'+(state.focusBranche===x.b?' selected':'')+'>'+esc(x.b)+' ('+x.n+')</option>').join('')+
-      '</select>'+
+    mselHTML('kontakteBranch','left')+
     '<select style="max-width:190px" onchange="filters.kampagne=this.value;renderList()"><option value="">Alle Kampagnen</option>'+
       kamps.map(k=>'<option'+(filters.kampagne===k?' selected':'')+'>'+esc(k)+'</option>').join('')+'</select>'+
     '<select style="max-width:170px" onchange="filters.sort=this.value;renderList()">'+
@@ -1184,7 +1249,7 @@ function vStat(){
     funnel.map((f,i)=>'<div class="barrow"><span class="mut">'+f[0]+'</span><span class="bt">'+
       '<i style="width:'+(f[1]/maxF*100)+'%;background:linear-gradient(90deg,var(--accent),var(--purple))"></i></span>'+
       '<b class="right">'+f[1]+'</b></div>').join('')+'</div>'+
-    '<div class="hr"></div><div class="small mut">Von 100 Leads'+(state.focusBranche?' der Branche '+esc(focusLabel()):'')+' werden im Schnitt '+
+    '<div class="hr"></div><div class="small mut">Von 100 Leads'+(focusSet().length?' der Auswahl '+esc(focusLabel()):'')+' werden im Schnitt '+
     (F.length?Math.round(funnel[3][1]/F.length*100):0)+' zu einem Termin.</div></div></div>';
 
   const kmp={};
@@ -1210,7 +1275,7 @@ function vStat(){
       '<th class="right">Termin je Lead</th><th>Leistungspaket</th></tr></thead><tbody>'+
       bkeys.map(k=>{
         const p=(state.settings.pakete||[]).find(x=>String(x.branche||'').trim().toLowerCase()===k.toLowerCase());
-        return '<tr style="cursor:pointer" onclick="setBranche(\''+esc(k==='(ohne Branche)'?'__leer__':k).replace(/'/g,"\\'")+'\')">'+
+        return '<tr style="cursor:pointer" title="Nur diese Branche anzeigen" onclick="setBranche(\''+jsq(k==='(ohne Branche)'?NO_BRANCH:k)+'\')">'+
         '<td class="t-comp">'+esc(k)+'</td><td class="right">'+brn[k].n+'</td><td class="right">'+brn[k].c+'</td>'+
         '<td class="right">'+brn[k].g+'</td><td class="right">'+brn[k].t+'</td>'+
         '<td class="right"><b>'+(brn[k].n?Math.round(brn[k].t/brn[k].n*100):0)+'%</b></td>'+
@@ -1581,7 +1646,8 @@ function collectPakete(){
 }
 function addPaket(){
   state.settings.pakete=collectPakete();
-  state.settings.pakete.push({branche:state.focusBranche&&state.focusBranche!=='__leer__'?state.focusBranche:'',angebot:'',notiz:''});
+  const f=focusSet().filter(x=>x!==NO_BRANCH);
+  state.settings.pakete.push({branche:f.length===1?f[0]:'',angebot:'',notiz:''});
   saveQuiet(); render();
 }
 function delPaket(i){
